@@ -184,7 +184,7 @@ export default function App() {
           {mode === 'decode' ? '진심만 남기고, 빈말은 걸러드려요' : '진심은 그대로, 빈말은 풍성하게'}
         </p>
         <p className="text-sm max-w-md mx-auto leading-relaxed transition-colors duration-500"
-          style={{ color: mode === 'decode' ? '#78716C' : '#6366F1' }}
+          style={{ color: mode === 'decode' ? '#78716C' : '#EA580C' }}
         >
           {mode === 'decode'
             ? '메시지를 붙여넣으면 빈말을 찾아드립니다'
@@ -248,15 +248,15 @@ export default function App() {
               <label className="text-xs font-semibold text-ink-500 uppercase tracking-wider">
                 {mode === 'decode' ? '분석할 텍스트' : '핵심 메시지'}
               </label>
-              <span className={`text-xs ${input.length >= (mode === 'decode' ? 1000 : 100) ? 'text-red-500 font-semibold' : 'text-ink-400'}`}>
-                {input.length}/{'\u2009'}{mode === 'decode' ? '1,000' : '100'}자
+              <span className={`text-xs ${input.length >= (mode === 'decode' ? 800 : 100) ? 'text-red-500 font-semibold' : 'text-ink-400'}`}>
+                {input.length}/{'\u2009'}{mode === 'decode' ? '800' : '100'}자
               </span>
             </div>
             <textarea
               className="input-area flex-1"
-              maxLength={mode === 'decode' ? 1000 : 100}
+              maxLength={mode === 'decode' ? 800 : 100}
               style={{
-                borderColor: input.length >= (mode === 'decode' ? 1000 : 100) ? '#EF4444' : input ? theme.pill + '40' : undefined,
+                borderColor: input.length >= (mode === 'decode' ? 800 : 100) ? '#EF4444' : input ? theme.pill + '40' : undefined,
               }}
               placeholder={
                 mode === 'decode'
