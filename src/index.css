@@ -452,6 +452,75 @@ footer a:hover {
   color: #D4451A;
 }
 
+/* ─── Terms Modal ─── */
+.terms-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(520px, 90vw);
+  max-height: 80vh;
+  background: #FEFDFB;
+  border-radius: 20px;
+  padding: 28px 32px;
+  z-index: 51;
+  animation: resultSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  display: flex;
+  flex-direction: column;
+}
+
+.terms-content {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.terms-content h3 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1C1917;
+  margin: 16px 0 6px;
+}
+
+.terms-content h3:first-child {
+  margin-top: 0;
+}
+
+.terms-content p {
+  font-size: 0.8rem;
+  line-height: 1.7;
+  color: #57534E;
+  margin: 0;
+}
+
+.terms-tab {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 100px;
+  background: #F5F1EB;
+  color: #78716C;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.footer-link {
+  color: #A8A29E;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.2s;
+}
+
+.footer-link:hover {
+  color: #78716C;
+}
+
 /* ─── Responsive ─── */
 @media (max-width: 768px) {
   .result-card {

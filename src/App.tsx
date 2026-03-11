@@ -57,6 +57,8 @@ export default function App() {
   const [gaugeAnimated, setGaugeAnimated] = useState(false)
   const [used, setUsed] = useState(0)
   const [limit] = useState(5)
+  const [showTerms, setShowTerms] = useState(false)
+  const [termsTab, setTermsTab] = useState<'terms' | 'privacy'>('terms')
 
   const decodeRef = useRef<HTMLButtonElement>(null)
   const packageRef = useRef<HTMLButtonElement>(null)
@@ -507,9 +509,107 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="text-center py-8 px-6">
-        <p>빈말번역기 &middot; AI 참고 분석이며 실제 의도와 다를 수 있습니다</p>
+      <footer className="text-center py-8 px-6 flex flex-col items-center gap-3">
+        <p>AI 참고 분석이며 실제 의도와 다를 수 있습니다</p>
+        <div className="flex items-center gap-2" style={{ fontSize: '0.7rem' }}>
+          <button
+            className="footer-link"
+            onClick={() => { setShowTerms(true); setTermsTab('terms') }}
+          >
+            이용약관
+          </button>
+          <span style={{ color: '#D6D3D1' }}>&middot;</span>
+          <button
+            className="footer-link"
+            onClick={() => { setShowTerms(true); setTermsTab('privacy') }}
+          >
+            개인정보처리방침
+          </button>
+        </div>
+        <div style={{ fontSize: '0.65rem', color: '#D6D3D1', lineHeight: 1.8 }}>
+          <p>하우워즈 &middot; 사업자등록번호 413-24-01458</p>
+          <p>통신판매업신고 제 2023-서울강남-01292호</p>
+          <p>서울특별시 금천구 디지털로10길 78, 941-77호(가산동, 가산테라타워)</p>
+        </div>
       </footer>
+
+      {/* Terms Modal */}
+      {showTerms && (
+        <>
+          <div
+            className="settings-backdrop"
+            onClick={() => setShowTerms(false)}
+          />
+          <div className="terms-modal">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex gap-1">
+                <button
+                  className="terms-tab"
+                  style={termsTab === 'terms' ? { background: '#1C1917', color: '#fff' } : undefined}
+                  onClick={() => setTermsTab('terms')}
+                >
+                  이용약관
+                </button>
+                <button
+                  className="terms-tab"
+                  style={termsTab === 'privacy' ? { background: '#1C1917', color: '#fff' } : undefined}
+                  onClick={() => setTermsTab('privacy')}
+                >
+                  개인정보처리방침
+                </button>
+              </div>
+              <button
+                onClick={() => setShowTerms(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#78716C" strokeWidth="2" strokeLinecap="round">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="terms-content">
+              {termsTab === 'terms' ? (
+                <>
+                  <h3>1. 서비스 개요</h3>
+                  <p>빈말번역기(이하 "서비스")는 하우워즈가 운영하는 AI 기반 한국어 텍스트 분석·생성 서비스입니다. 본 서비스는 참고용으로 제공되며, 분석 결과의 정확성을 보장하지 않습니다.</p>
+
+                  <h3>2. 이용 제한</h3>
+                  <p>서비스는 1인당 하루 5회까지 무료로 이용할 수 있습니다. 입력 텍스트는 1,000자로 제한됩니다. 이용 횟수는 매일 자정(KST) 초기화됩니다.</p>
+
+                  <h3>3. 입력 데이터 활용</h3>
+                  <p>입력된 내용은 AI 모델 개선 및 서비스 품질 향상에 활용될 수 있습니다. 개인정보, 기밀정보 등 민감한 정보의 입력을 자제해주세요.</p>
+
+                  <h3>4. 면책 조항</h3>
+                  <p>본 서비스의 분석·생성 결과는 AI가 생성한 참고 자료이며, 실제 의도나 맥락과 다를 수 있습니다. 서비스 이용으로 인해 발생하는 문제에 대해 운영자는 책임을 지지 않습니다.</p>
+
+                  <h3>5. 금지 행위</h3>
+                  <p>비정상적인 대량 요청, 자동화된 접근, 서비스 방해 행위는 금지되며, 위반 시 이용이 제한될 수 있습니다.</p>
+
+                  <h3>6. 약관 변경</h3>
+                  <p>본 약관은 사전 고지 없이 변경될 수 있으며, 서비스 이용 시 변경된 약관에 동의한 것으로 간주합니다.</p>
+                </>
+              ) : (
+                <>
+                  <h3>1. 수집하는 개인정보</h3>
+                  <p>서비스 이용 시 IP 주소가 이용 횟수 제한 목적으로 수집됩니다. 이용자가 입력한 텍스트는 AI 처리를 위해 일시적으로 전송되며, 서비스 품질 개선에 활용될 수 있습니다.</p>
+
+                  <h3>2. 개인정보 이용 목적</h3>
+                  <p>수집된 정보는 서비스 제공 및 이용 제한 관리, AI 모델 개선 및 서비스 품질 향상 목적으로 이용됩니다.</p>
+
+                  <h3>3. 보유 및 파기</h3>
+                  <p>IP 기반 이용 횟수 데이터는 24시간 이내 자동 삭제됩니다. 입력 텍스트는 AI 처리 후 별도 저장하지 않습니다.</p>
+
+                  <h3>4. 제3자 제공</h3>
+                  <p>입력된 텍스트는 AI 분석을 위해 OpenAI API로 전송됩니다. 그 외 제3자에게 개인정보를 제공하지 않습니다.</p>
+
+                  <h3>5. 이용자의 권리</h3>
+                  <p>이용자는 개인정보 처리에 동의하지 않을 권리가 있으며, 동의하지 않을 경우 서비스 이용이 제한될 수 있습니다.</p>
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Copy Toast */}
       <div className={`copy-toast ${copyToast ? 'visible' : ''}`}>
