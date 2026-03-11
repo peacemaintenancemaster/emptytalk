@@ -181,7 +181,7 @@ export default function App() {
         <p className="text-2xl md:text-3xl font-bold tracking-tight mb-3 transition-colors duration-500"
           style={{ color: mode === 'decode' ? '#1C1917' : '#1E1B4B' }}
         >
-          {mode === 'decode' ? '진심만 남기고, 빈말은 걸러드려요' : '진심은 그대로, 빈말은 풍성하게'}
+          {mode === 'decode' ? '빈말은 거르고, 진심만 남겨드려요' : '진심은 그대로, 빈말은 풍성하게'}
         </p>
         <p className="text-sm max-w-md mx-auto leading-relaxed transition-colors duration-500"
           style={{ color: mode === 'decode' ? '#EA580C' : '#6366F1' }}
