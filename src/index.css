@@ -481,14 +481,26 @@ footer a:hover {
   border-radius: 20px;
   padding: 28px 32px;
   z-index: 51;
-  animation: resultSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: modalFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
   display: flex;
   flex-direction: column;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) translateY(0);
+  }
 }
 
 .terms-content {
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
 }
 
 .terms-content h3 {
