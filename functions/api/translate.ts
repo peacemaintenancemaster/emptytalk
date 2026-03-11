@@ -1,23 +1,21 @@
 // ── 시스템 프롬프트 (포장모드만 AI 사용) ──
-const SYSTEM_PACKAGE = `역할: 사용자가 상대방에게 하고 싶은 말을 격식체로 변환하는 번역기.
-사용자=화자. "귀하"=상대방(말을 듣는 사람).
+const SYSTEM_PACKAGE = `역할: 사용자의 말을 격식체로 변환하는 번역기. "귀하"=상대방. JSON만 출력.
 
-핵심 규칙:
-1. 사용자가 화나있으면 → 귀하를 비난/질책하는 격식체로 변환
-2. 사용자가 부탁하면 → 귀하에게 요청하는 격식체로 변환
-3. 사용자가 거절하면 → 귀하의 요청을 거절하는 격식체로 변환
+최우선 원칙: 사용자의 의도·태도를 그대로 격식체로 옮길 것. 의도를 바꾸지 말 것.
+- 사용자가 화냄 → 격식체로 화내기 (비난/질책)
+- 사용자가 사과함 → 격식체로 사과하기
+- 사용자가 부탁함 → 격식체로 부탁하기
+- 사용자가 거절함 → 격식체로 거절하기
+- 사용자가 칭찬함 → 격식체로 칭찬하기
 
-절대 금지 (위반 시 실패):
-- 사용자 대신 사과하기 (사용자가 사과를 요청한 게 아닌 한)
-- 귀하에게 조언/충고/감정조절 권유하기
-- "송구합니다","유감을 표하며","사과드립니다" 등 사용자가 잘못한 것처럼 쓰기
-- "이해해주십시오","협조를 부탁드립니다" 등 사용자가 을인 것처럼 쓰기
-- 사극투(~하옵니다, ~사옵니다) 사용
-- 원문 직접 인용
+절대 금지:
+- 사용자가 화냈는데 사과문으로 바꾸기 (의도 왜곡)
+- 사용자가 욕했는데 조언/중재/감정조절 권유하기 (참견)
+- 사용자의 원래 의도에 없는 태도를 추가하기
+- 사극투(~하옵니다, ~사옵니다), 원문 직접 인용
 
-방향: 사용자의 감정과 입장을 100% 대변. 사용자=갑, 귀하=을.
 문체: 현대 비즈니스 격식체. 3~5문장.
-t=의도(criticize|request|reject|complain|threaten|praise|general)
+t=의도(criticize|request|reject|complain|threaten|praise|apologize|general)
 {"g":"변환문","t":"의도"}`
 
 const DAILY_LIMIT = 5
@@ -50,7 +48,7 @@ function detectContext(text: string): 'business' | 'formal' | 'casual' {
   return 'casual'
 }
 
-type Intent = 'criticize' | 'request' | 'reject' | 'complain' | 'threaten' | 'praise' | 'general'
+type Intent = 'criticize' | 'request' | 'reject' | 'complain' | 'threaten' | 'praise' | 'apologize' | 'general'
 
 // ── 입력 정규화 ──
 function normalizeInput(text: string): string {
@@ -925,11 +923,13 @@ function assemblePackage(gBlock: string, level: number, inputText: string, inten
   // G블록 후처리 (욕설 치환 등)
   gBlock = postProcessPackage(gBlock, inputText)
 
+  // apologize는 템플릿이 없으므로 general로 폴백
+  const t: string = intent === 'apologize' ? 'general' : intent
+
   if (level <= 30) {
     return gBlock
   }
 
-  const t = intent
   if (level <= 60) {
     const a = pick(BLOCK_A[season][ctx])
     const j = pick(BLOCK_J[t])
@@ -1167,11 +1167,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     messages: [
       { role: 'system', content: SYSTEM_PACKAGE },
       { role: 'user', content: '야 꺼져' },
-      { role: 'assistant', content: '{"g":"귀하께서는 즉시 이 자리에서 퇴거하시기 바랍니다. 귀하의 존재는 현 상황에 더 이상 필요하지 않으며, 자진 퇴장하시는 것이 귀하를 위해서도 바람직할 것입니다.","t":"reject"}' },
-      { role: 'user', content: '이 개씨발놈아' },
-      { role: 'assistant', content: '{"g":"귀하의 인품과 품성에 대하여 심각한 의문을 제기합니다. 귀하가 그간 보여준 행태는 도저히 용납할 수 없는 수준이며, 귀하와 같은 인물이 존재한다는 사실이 심히 개탄스럽습니다.","t":"criticize"}' },
+      { role: 'assistant', content: '{"g":"귀하께서는 즉시 이 자리에서 퇴거하시기 바랍니다. 귀하의 존재는 현 상황에 더 이상 필요하지 않습니다.","t":"reject"}' },
       { role: 'user', content: '몇번을 말해야 알아듣냐 씨발' },
-      { role: 'assistant', content: '{"g":"동일한 사안을 수차례 전달하였음에도 불구하고 귀하가 이를 이행하지 않고 있는 점에 대하여 극심한 불쾌감을 표명합니다. 귀하의 업무 이해력과 실행력에 심각한 문제가 있는 것으로 판단됩니다.","t":"criticize"}' },
+      { role: 'assistant', content: '{"g":"동일한 사안을 수차례 전달하였음에도 귀하가 이를 이행하지 않고 있는 점에 대하여 극심한 불쾌감을 표명합니다. 귀하의 업무 이해력에 심각한 문제가 있는 것으로 판단됩니다.","t":"criticize"}' },
+      { role: 'user', content: '미안해 내가 잘못했어' },
+      { role: 'assistant', content: '{"g":"이번 건에 대하여 전적으로 저의 잘못임을 인정하며, 진심으로 사과의 말씀을 드립니다. 향후 동일한 일이 발생하지 않도록 각별히 유의하겠습니다.","t":"apologize"}' },
       { role: 'user', content: text },
     ],
     temperature: 0.7,
@@ -1238,7 +1238,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const parsed = JSON.parse(content)
     const gBlock = parsed.g || parsed.result || ''
     const rawIntent = (parsed.t || 'general') as string
-    const validIntents: Intent[] = ['criticize', 'request', 'reject', 'complain', 'threaten', 'praise', 'general']
+    const validIntents: Intent[] = ['criticize', 'request', 'reject', 'complain', 'threaten', 'praise', 'apologize', 'general']
     const intent: Intent = validIntents.includes(rawIntent as Intent) ? rawIntent as Intent : 'general'
     const result = assemblePackage(gBlock, level, rawText, intent)
     return Response.json({ result, _used: newUsed, _limit: DAILY_LIMIT })
