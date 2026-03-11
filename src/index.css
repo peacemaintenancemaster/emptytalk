@@ -184,6 +184,7 @@ body::before {
   border-radius: 100px;
   height: 8px;
   margin: 14px 0;
+  overflow: hidden;
 }
 
 .density-slider-fill {
