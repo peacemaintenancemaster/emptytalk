@@ -146,11 +146,17 @@ export default function App() {
     >
       {/* Header */}
       <header className="px-6 md:px-12 py-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5">
           <h1 className="text-xl font-bold tracking-tight text-ink-900">
             빈말번역기
           </h1>
-          <span className="hidden sm:inline text-xs font-medium text-ink-400 bg-cream-200 px-2.5 py-1 rounded-full">
+          <span
+            className="text-xs font-semibold px-2 py-0.5 rounded-full transition-colors duration-500"
+            style={{
+              background: mode === 'decode' ? '#D4451A' : '#6366F1',
+              color: '#fff',
+            }}
+          >
             beta
           </span>
         </div>
