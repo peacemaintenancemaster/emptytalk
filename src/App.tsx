@@ -292,7 +292,7 @@ export default function App() {
                     <div
                       className="density-slider-fill"
                       style={{
-                        width: `${((sliderValue - 10) / 90) * 100}%`,
+                        width: `calc(${((sliderValue - 10) / 90) * 100}% + ${14 - ((sliderValue - 10) / 90) * 28}px)`,
                         background: 'linear-gradient(90deg, #A5B4FC, #6366F1)',
                       }}
                     />
