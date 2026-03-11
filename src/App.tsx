@@ -4,7 +4,7 @@ import { analyzeText, generatePackaged, fetchUsage, type DecodeResult, type Pack
 type Mode = 'decode' | 'package'
 
 const PRESETS = [
-  { value: 0, label: '직설' },
+  { value: 10, label: '직설' },
   { value: 30, label: '적당' },
   { value: 60, label: '비즈니스' },
   { value: 100, label: '풀빈말' },
@@ -52,7 +52,7 @@ export default function App() {
   const [error, setError] = useState('')
   const [decodeResult, setDecodeResult] = useState<DecodeResult | null>(null)
   const [packageResult, setPackageResult] = useState<PackageResult | null>(null)
-  const [sliderValue, setSliderValue] = useState(60)
+  const [sliderValue, setSliderValue] = useState(30)
   const [copyToast, setCopyToast] = useState(false)
   const [gaugeAnimated, setGaugeAnimated] = useState(false)
   const [used, setUsed] = useState(0)
@@ -270,7 +270,7 @@ export default function App() {
                   <input
                     type="range"
                     className="density-slider relative z-10"
-                    min="0"
+                    min="10"
                     max="100"
                     value={sliderValue}
                     onChange={e => setSliderValue(Number(e.target.value))}
