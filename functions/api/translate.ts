@@ -1,15 +1,25 @@
 // ── 시스템 프롬프트 (포장모드만 AI 사용) ──
-const SYSTEM_PACKAGE = `사용자의 말을 격식체 만연체로 순화하여 "대신 전달". JSON만 출력.
-규칙:
-- 만연체 필수: 우회적·간접적 표현으로 본심을 여러 겹 포장. 짧고 직접적인 문장 금지.
-- 미사여구 적극 활용: "~하옵는 바이며", "~하시는 것이 마땅하리라 사료되옵기에" 등
-- 핵심 의도는 유지하되 문장 속에 깊이 매몰시킬 것.
-- 충고·조언·중재·사과권유·감정조절권유 절대 금지. 사용자 편에서 전달만.
-- 욕설→격식 유감 표현으로 치환. "꺼져"→"자리를 피해 주시옵기를" 방향.
-- 원문 인용 금지. 상황 지어내기 금지.
+const SYSTEM_PACKAGE = `너는 "사용자→상대방"에게 보내는 편지의 대필가다. JSON만 출력.
+사용자=발신인. 상대방=수신인(귀하). 너는 발신인의 감정·의도를 격식체 만연체로 대필한다.
+
+절대 금지:
+- 상대방에게 충고/조언/권고/중재/감정조절 권유 → 이건 대필이 아니라 참견이다
+- "차분하게","냉정하게","이해를","감정을 표현하고자" 등 상대 행동 유도 금지
+- "권장합니다","권고합니다","바라봐주시기를" 등 훈계조 금지
+- 원문 직접 인용, 상황 지어내기 금지
+
+필수:
+- 발신인이 욕하면 → 격식체로 욕의 의도를 전달 (비난/경멸/분노를 정중한 말투로)
+- 발신인이 거절하면 → 격식체로 거절을 전달
+- 만연체: 우회적 수식어로 문장을 길게. "~하옵는 바이며", "~사료되옵기에" 등
 - 3~5문장, 호칭 "귀하"
+
+예시방향:
+"개새끼" → "귀하의 인품에 대하여 심대한 의문을 제기하지 않을 수 없사옵니다" (O)
+"개새끼" → "감정을 이해하오나 차분하게 대화하시기를 권합니다" (X, 이건 참견)
+
 t=의도(criticize|request|reject|complain|threaten|praise|general)
-{"g":"만연체로 순화된 본론","t":"의도"}`
+{"g":"만연체 대필문","t":"의도"}`
 
 const DAILY_LIMIT = 5
 
@@ -192,46 +202,61 @@ function extractKeywords(text: string): string[] {
 
 // 문장 분리
 function splitSentences(text: string): string[] {
-  // 마침표/물음표/느낌표/개행 기준으로 분리, 빈 문장 제거
+  // 마침표/물음표/느낌표/개행/쉼표+접속사 기준으로 분리
   return text
-    .split(/(?<=[.!?。])\s*|\n+/)
+    .split(/(?<=[.!?。])\s*|\n+|,\s*(?=그리고|그러나|하지만|또한|아울러|한편|이에)/)
     .map(s => s.trim())
-    .filter(s => s.length > 3)
+    .filter(s => s.length > 5)
 }
 
-// 핵심 문장 선택 → 한 줄 요약 생성
+// 빈말성 문장 판별 (높을수록 빈말)
+function getFillerScore(sent: string): number {
+  let penalty = 0
+  // 인사/안부/감사/마무리 패턴
+  if (/안녕|인사|수고|감사|부탁|건강|평안|기원|건승|발전|행복|축복|봄날|여름|가을|겨울|계절/.test(sent)) penalty += 3
+  if (/감사합니다|바랍니다|드립니다|올립니다|기원합니다|빕니다/.test(sent)) penalty += 2
+  if (/귀하의\s*(건승|발전|노고|협조|이해|양해)/.test(sent)) penalty += 3
+  if (/귀사의/.test(sent)) penalty += 2
+  // 격식 도입부/전환구
+  if (/다름이\s*아니오라|말씀\s*드리|조심스럽|송구|실례|에둘러/.test(sent)) penalty += 2
+  if (/사자성어|하였사온데|사료되|하옵|이옵/.test(sent)) penalty += 2
+  if (/타산지석|과유불급|고진감래|역지사지|온고지신/.test(sent)) penalty += 3
+  // 뉴스 필러
+  if (/라고\s*(말했다|밝혔다|전했다|설명했다)|것으로\s*(알려졌다|전해졌다|나타났다)/.test(sent)) penalty += 1
+  if (/관계자|에\s*따르면/.test(sent)) penalty += 1
+  return penalty
+}
+
+// 핵심 문장 선택 → 한 줄 요약
 function extractCoreSentence(text: string, keywords: string[]): string {
   const sentences = splitSentences(text)
-  if (sentences.length === 0) return text.slice(0, 50)
+  if (sentences.length === 0) return text.slice(0, 60)
+  if (sentences.length === 1) {
+    const s = sentences[0]
+    return s.length > 60 ? s.slice(0, 57) + '…' : s
+  }
 
-  // 키워드 Set
   const kwSet = new Set(keywords)
 
-  // 각 문장에 점수 부여: 포함된 키워드 수 × 키워드 길이합
   const scored = sentences.map(sent => {
-    let score = 0
+    // 키워드 매칭 점수
+    let kwScore = 0
     for (const kw of kwSet) {
-      if (sent.includes(kw)) {
-        score += kw.length
-      }
+      if (sent.includes(kw)) kwScore += kw.length
     }
-    // 빈말성 문장 패턴 페널티
-    if (/^(안녕|감사|수고|부탁|인사|건강|바랍니다|드립니다|올립니다)/.test(sent)) score *= 0.2
-    if (/감사합니다\.?$|바랍니다\.?$|드립니다\.?$/.test(sent)) score *= 0.5
-    // 너무 짧은 문장 페널티
-    if (sent.length < 10) score *= 0.5
+    // 빈말 페널티 (높을수록 빈말 → 점수 감소)
+    const fillerPenalty = getFillerScore(sent)
+    // 최종 점수: 키워드 점수 - 빈말 페널티 * 5
+    const score = kwScore - fillerPenalty * 5
     return { sent, score }
   })
 
   scored.sort((a, b) => b.score - a.score)
 
-  // 최고 점수 문장 선택
   let best = scored[0].sent
-  // 문장이 너무 길면 잘라서 깔끔하게
   if (best.length > 60) {
-    // 60자 근처에서 자연스러운 끊김점 찾기
     const cutPoint = best.lastIndexOf(' ', 60)
-    best = best.slice(0, cutPoint > 30 ? cutPoint : 60) + '…'
+    best = best.slice(0, cutPoint > 30 ? cutPoint : 57) + '…'
   }
 
   return best
@@ -1130,9 +1155,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     messages: [
       { role: 'system', content: SYSTEM_PACKAGE },
       { role: 'user', content: '야 꺼져' },
-      { role: 'assistant', content: '{"g":"귀하께서 현 상황에서 계속하여 이 자리에 임하시는 것이 과연 쌍방에게 유익한 일인지에 대하여 심히 의문을 품지 않을 수 없사오며, 이에 귀하께서 스스로의 판단 하에 조속히 자리를 정리하여 주시옵기를 간곡히 말씀드리는 바이옵니다.","t":"reject"}' },
-      { role: 'user', content: '이 개새끼야 뭐하는 짓이야' },
-      { role: 'assistant', content: '{"g":"귀하의 최근 일련의 행보에 대하여 심심한 유감의 뜻을 표하지 않을 수 없사오며, 귀하께서 취하고 계신 처사가 과연 합당한 것인지에 대하여 깊은 회의를 느끼고 있사옵기에, 이에 대한 해명을 구하는 바이옵니다.","t":"criticize"}' },
+      { role: 'assistant', content: '{"g":"귀하께서 이 자리에서 조속히 퇴거하여 주시옵기를 간곡히 요청드리는 바이옵니다. 귀하의 존재가 현 상황에 더 이상 부합하지 아니하옵기에, 스스로 판단하시어 자리를 정리해 주시옵는 것이 마땅하리라 사료되옵니다.","t":"reject"}' },
+      { role: 'user', content: '이 개씨발놈아' },
+      { role: 'assistant', content: '{"g":"귀하의 인품과 품성에 대하여 심대한 의문을 제기하지 않을 수 없사오며, 귀하께서 그간 보여주신 행태는 도저히 용납할 수 없는 수준이라 사료되옵니다. 귀하와 같은 분이 존재한다는 사실 자체가 심히 개탄스러운 바이옵니다.","t":"criticize"}' },
       { role: 'user', content: text },
     ],
     temperature: 0.7,
