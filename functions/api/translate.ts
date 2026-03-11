@@ -26,6 +26,7 @@ const SYSTEM = `너는 한국어 빈말(의례적·관습적·장식적 표현) 
 [포장:N] (N=0~100)
 입력된 핵심 메시지를 빈말 N% 농도로 포장한 완전히 새로운 문장을 작성한다.
 중요: 매번 다른 패턴과 표현을 조합하라. 같은 서두·마무리 반복 금지. 상황에 맞는 구체적이고 창의적인 빈말을 만들어라.
+입력에 비속어·욕설이 있으면 반드시 정중하고 공손한 표현으로 순화하여 포장하라. 비속어를 그대로 출력 금지.
 N≤30: 핵심 위주, 최소한의 완곡 표현만. 2~3문장.
 N=40~60: 서두 인사+완곡 요청+마무리. 자연스러운 비즈니스 톤. 4~6문장.
 N=70~80: 인사+배경 설명+양해 구하기+본론+감사+마무리 인사. 격식체. 6~8문장.
@@ -139,6 +140,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   try {
     const parsed = JSON.parse(content)
+    // 포장 모드에서 [[ ]] 마크업이 남아있으면 강제 제거
+    if (parsed.result && typeof parsed.result === 'string') {
+      parsed.result = parsed.result.replace(/\[\[|\]\]/g, '')
+    }
     return Response.json({ ...parsed, _used: newUsed, _limit: DAILY_LIMIT })
   } catch {
     return Response.json({ error: 'Failed to parse AI response' }, { status: 502 })
