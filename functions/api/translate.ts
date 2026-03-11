@@ -94,6 +94,123 @@ N≥60이면 블록 그룹 사이에 빈 줄(\\n\\n)로 문단을 나눠라. 인
 
 const DAILY_LIMIT = 5
 
+// ── 서버사이드 검증 함수 ──
+
+// 포장모드: 공격적·비격식 어휘 → 격식체 치환
+const POLISH_MAP: Array<[RegExp, string]> = [
+  // 욕설·비속어 (긴 것부터)
+  [/개새끼/g, '귀하의 행태'],
+  [/씨발/g, '극히 유감스러운'],
+  [/시발/g, '극히 유감스러운'],
+  [/지랄/g, '무리한 처사'],
+  [/병신/g, '부적절한 처사'],
+  [/빡치/g, '심히 유감스럽'],
+  [/ㅅㅂ/g, '유감스러운'],
+  [/ㅂㅅ/g, '부적절한'],
+  // 공격적 어휘
+  [/도대체/g, '정확히'],
+  [/어이가 없/g, '당혹스럽'],
+  [/어이없/g, '당혹스럽'],
+  [/미치겠/g, '난감하'],
+  [/열받/g, '유감스럽'],
+  [/짜증/g, '유감'],
+  [/개같/g, '부당하'],
+  [/황당/g, '의아'],
+  [/왜그래/g, '어떠한 사유가 있으신지'],
+  [/왜그러/g, '어떠한 사유가 있으신지'],
+  [/뭐야/g, '무엇인지'],
+  [/뭔데/g, '무엇인지'],
+  // 비격식 → 격식
+  [/제발/g, '부디'],
+  [/나한테/g, '저에게'],
+  [/나보고/g, '저에게'],
+  [/나더러/g, '저에게'],
+  [/니가/g, '귀하께서'],
+  [/네가/g, '귀하께서'],
+]
+
+function postProcessPackage(result: string, inputText: string): string {
+  // 1) [[ ]] 마크업 제거
+  result = result.replace(/\[\[|\]\]/g, '')
+  // 2) 공격적·비격식 어휘 치환
+  for (const [pattern, replacement] of POLISH_MAP) {
+    result = result.replace(pattern, replacement)
+  }
+  // 3) 원문 그대로 노출 방지 (입력이 결과에 포함되면 제거)
+  if (inputText.length >= 2 && result.includes(inputText)) {
+    result = result.replace(new RegExp(inputText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '')
+  }
+  return result
+}
+
+function postProcessDecode(raw: string, core: string | undefined): { highlighted: string, ratio: number } {
+  // 0) 진심 구간 앞뒤 공백을 빈말 쪽으로 흡수
+  raw = raw.replace(/\]\](\s+)/g, '$1]]')
+  raw = raw.replace(/(\s+)\[\[/g, '[[$1')
+
+  // 1) 공백·구두점만으로 이루어진 진심 구간을 빈말로 병합
+  raw = raw.replace(/\]\]([\s.,;:!?·…—\-–'"'"「」『』()（）《》<>]+)\[\[/g, '$1')
+
+  // 2) 같은 키워드가 진심으로 여러 번 → 첫 번째만 유지
+  const genuineParts: Array<{original: string, normalized: string}> = []
+  const genuineRegex = /\]\]([^[]+)\[\[/g
+  const startMatch = raw.match(/^([^[]+)\[\[/)
+  if (startMatch) genuineParts.push({ original: startMatch[1], normalized: startMatch[1].replace(/[\s.,;:!?·…—\-–'"'"「」『』()（）《》<>]/g, '') })
+  let m: RegExpExecArray | null
+  while ((m = genuineRegex.exec(raw)) !== null) {
+    genuineParts.push({ original: m[1], normalized: m[1].replace(/[\s.,;:!?·…—\-–'"'"「」『』()（）《》<>]/g, '') })
+  }
+  const endMatch = raw.match(/\]\]([^[]+)$/)
+  if (endMatch) genuineParts.push({ original: endMatch[1], normalized: endMatch[1].replace(/[\s.,;:!?·…—\-–'"'"「」『』()（）《》<>]/g, '') })
+
+  const seenGenuine = new Set<string>()
+  for (const part of genuineParts) {
+    if (part.normalized.length >= 2 && seenGenuine.has(part.normalized)) {
+      raw = raw.replace(`]]${part.original}[[`, part.original)
+      if (raw.startsWith(part.original + '[[')) {
+        raw = '[[' + part.original + raw.slice(part.original.length)
+      }
+      if (raw.endsWith(']]' + part.original)) {
+        raw = raw.slice(0, -part.original.length) + part.original + ']]'
+      }
+    }
+    if (part.normalized.length >= 2) seenGenuine.add(part.normalized)
+  }
+
+  // 3) core 키워드가 빈말 안에 있으면 강제로 진심으로 꺼냄
+  if (core) {
+    const coreWords = (core.match(/[가-힣a-zA-Z0-9]{2,}/g) || [])
+      .sort((a: string, b: string) => b.length - a.length)
+    for (const kw of coreWords) {
+      const escKw = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const inEmptyRegex = new RegExp(`\\[\\[([^\\]]*?)(${escKw})([^\\[]*?)\\]\\]`)
+      const match = raw.match(inEmptyRegex)
+      if (match) {
+        const before = match[1]
+        const keyword = match[2]
+        const after = match[3]
+        let replacement = ''
+        if (before) replacement += `[[${before}]]`
+        replacement += keyword
+        if (after) replacement += `[[${after}]]`
+        raw = raw.replace(match[0], replacement)
+      }
+    }
+    raw = raw.replace(/\[\[\]\]/g, '')
+  }
+
+  // 4) ratio 계산 (최대 99.9%)
+  const emptyMatch = raw.match(/\[\[(.*?)\]\]/gs)
+  const emptyText = emptyMatch ? emptyMatch.map((seg: string) => seg.slice(2, -2)).join('') : ''
+  const plainText = raw.replace(/\[\[|\]\]/g, '')
+  let ratio = 0
+  if (plainText.length > 0) {
+    ratio = Math.min(99.9, Math.round((emptyText.length / plainText.length) * 1000) / 10)
+  }
+
+  return { highlighted: raw, ratio }
+}
+
 interface Env {
   OPENAI_API_KEY: string
   RATE_LIMIT: KVNamespace
@@ -233,124 +350,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const parsed = JSON.parse(content)
     // 포장 모드 후처리
     if (parsed.result && typeof parsed.result === 'string') {
-      let result = parsed.result
-      // [[ ]] 마크업 강제 제거
-      result = result.replace(/\[\[|\]\]/g, '')
-      // 공격적·비격식 어휘를 격식체로 치환
-      const polishMap: Array<[RegExp, string]> = [
-        [/도대체/g, '정확히'],
-        [/대체/g, '구체적으로'],
-        [/제발/g, '부디'],
-        [/좀/g, '다소'],
-        [/왜그래/g, '어떠한 사유가 있으신지'],
-        [/왜그러/g, '어떠한 사유가 있으신지'],
-        [/뭐야/g, '무엇인지'],
-        [/뭔데/g, '무엇인지'],
-        [/짜증/g, '유감'],
-        [/빡치/g, '심히 유감스럽'],
-        [/열받/g, '유감스럽'],
-        [/미치겠/g, '난감하'],
-        [/어이없/g, '당혹스럽'],
-        [/어이가 없/g, '당혹스럽'],
-        [/황당/g, '의아'],
-        [/개같/g, '부당하'],
-        [/지랄/g, '무리한 처사'],
-        [/씨발/g, '극히 유감스러운'],
-        [/시발/g, '극히 유감스러운'],
-        [/ㅅㅂ/g, '유감스러운'],
-        [/ㅂㅅ/g, '부적절한'],
-        [/병신/g, '부적절한 처사'],
-        [/개새끼/g, '귀하의 행태'],
-        [/새끼/g, '해당인'],
-        [/놈/g, '해당인'],
-        [/년/g, '해당인'],
-        [/나한테/g, '저에게'],
-        [/나보고/g, '저에게'],
-        [/나더러/g, '저에게'],
-        [/내가/g, '제가'],
-        [/니가/g, '귀하께서'],
-        [/네가/g, '귀하께서'],
-      ]
-      for (const [pattern, replacement] of polishMap) {
-        result = result.replace(pattern, replacement)
-      }
-      parsed.result = result
+      parsed.result = postProcessPackage(parsed.result, text)
     }
     // 해독 모드 후처리
     if (parsed.highlighted && typeof parsed.highlighted === 'string') {
-      let raw = parsed.highlighted
-
-      // 0) 진심 구간 앞뒤 공백을 빈말 쪽으로 흡수
-      // ]] 뒤 공백 → 빈말 안으로: "]]  상생[[" → "]] [[ 상생[["  (공백을 빈말 끝에)
-      raw = raw.replace(/\]\](\s+)/g, '$1]]')
-      // [[ 앞 공백 → 빈말 안으로: "상생 [[" → "상생]][[ [["
-      raw = raw.replace(/(\s+)\[\[/g, '[[$1')
-
-      // 1) 공백·구두점만으로 이루어진 진심 구간을 빈말로 병합
-      // ]]와 [[ 사이에 공백·구두점만 있으면 빈말 안으로 흡수
-      raw = raw.replace(/\]\]([\s.,;:!?·…—\-–'"'"「」『』()（）《》<>]+)\[\[/g, '$1')
-
-      // 2) 같은 키워드가 진심으로 여러 번 나오면 첫 번째만 남기고 나머지는 빈말 처리
-      const genuineParts: Array<{original: string, normalized: string}> = []
-      const genuineRegex = /\]\]([^[]+)\[\[/g
-      const startMatch = raw.match(/^([^[]+)\[\[/)
-      if (startMatch) genuineParts.push({ original: startMatch[1], normalized: startMatch[1].replace(/[\s.,;:!?·…—\-–'"'"「」『』()（）《》<>]/g, '') })
-      let m: RegExpExecArray | null
-      while ((m = genuineRegex.exec(raw)) !== null) {
-        genuineParts.push({ original: m[1], normalized: m[1].replace(/[\s.,;:!?·…—\-–'"'"「」『』()（）《》<>]/g, '') })
-      }
-      const endMatch = raw.match(/\]\]([^[]+)$/)
-      if (endMatch) genuineParts.push({ original: endMatch[1], normalized: endMatch[1].replace(/[\s.,;:!?·…—\-–'"'"「」『』()（）《》<>]/g, '') })
-
-      const seenGenuine = new Set<string>()
-      for (const part of genuineParts) {
-        if (part.normalized.length >= 2 && seenGenuine.has(part.normalized)) {
-          // 원본 텍스트 그대로 매칭하여 빈말로 흡수
-          raw = raw.replace(`]]${part.original}[[`, part.original)
-          if (raw.startsWith(part.original + '[[')) {
-            raw = '[[' + part.original + raw.slice(part.original.length)
-          }
-          if (raw.endsWith(']]' + part.original)) {
-            raw = raw.slice(0, -part.original.length) + part.original + ']]'
-          }
-        }
-        if (part.normalized.length >= 2) seenGenuine.add(part.normalized)
-      }
-
-      // 3) core 키워드가 빈말([[ ]] 안)에 있으면 강제로 진심으로 꺼냄
-      if (parsed.core && typeof parsed.core === 'string') {
-        const coreWords = (parsed.core.match(/[가-힣a-zA-Z0-9]{2,}/g) || [])
-          // 긴 키워드부터 처리 (부분 매칭 방지)
-          .sort((a: string, b: string) => b.length - a.length)
-        for (const kw of coreWords) {
-          // 빈말 영역 안에서 키워드 첫 등장을 찾아서 꺼냄
-          const escKw = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-          const inEmptyRegex = new RegExp(`\\[\\[([^\\]]*?)(${escKw})([^\\[]*?)\\]\\]`)
-          const match = raw.match(inEmptyRegex)
-          if (match) {
-            const before = match[1]
-            const keyword = match[2]
-            const after = match[3]
-            let replacement = ''
-            if (before) replacement += `[[${before}]]`
-            replacement += keyword
-            if (after) replacement += `[[${after}]]`
-            raw = raw.replace(match[0], replacement)
-          }
-        }
-        // 빈 [[ ]] 제거
-        raw = raw.replace(/\[\[\]\]/g, '')
-      }
-
-      parsed.highlighted = raw
-
-      // ratio 계산
-      const emptyMatch = raw.match(/\[\[(.*?)\]\]/gs)
-      const emptyText = emptyMatch ? emptyMatch.map((m: string) => m.slice(2, -2)).join('') : ''
-      const plainText = raw.replace(/\[\[|\]\]/g, '')
-      if (plainText.length > 0) {
-        parsed.ratio = Math.min(99.9, Math.round((emptyText.length / plainText.length) * 1000) / 10)
-      }
+      const result = postProcessDecode(parsed.highlighted, parsed.core)
+      parsed.highlighted = result.highlighted
+      parsed.ratio = result.ratio
     }
     return Response.json({ ...parsed, _used: newUsed, _limit: DAILY_LIMIT })
   } catch {
