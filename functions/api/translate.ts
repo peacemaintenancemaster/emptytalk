@@ -125,9 +125,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: mode === 'decode' ? 'gpt-4o' : 'gpt-4o-mini',
       messages: [
         { role: 'system', content: SYSTEM },
+        ...(mode === 'decode' ? [
+          { role: 'user' as const, content: `[해독]\n수고 많으십니다. 다름이 아니오라, 다음 주 수요일까지 견적서를 보내주시면 감사하겠습니다. 번거로우시겠지만 양해 부탁드립니다. 좋은 하루 보내세요.` },
+          { role: 'assistant' as const, content: `{"ratio":72,"highlighted":"[[수고 많으십니다. 다름이 아니오라,]] 다음 주 수요일까지 견적서를 보내주시면 [[감사하겠습니다. 번거로우시겠지만 양해 부탁드립니다. 좋은 하루 보내세요.]]","core":"수요일까지 견적서 보내달라"}` },
+          { role: 'user' as const, content: `[해독]\n호랑이도 풀밭이 있어야 살아갈 수 있습니다. 자연의 이치가 그렇듯, 우리 경제 역시 혼자서는 지속될 수 없습니다. 한화오션은 하청업체 노동자에게도 본사와 동일한 성과급을 지급하는 등 협력업체와의 임금 격차를 줄이는 데 연간 890억 원을 투입했습니다. 이러한 상생의 가치가 대한민국 곳곳에 퍼져나갈 수 있도록 최선을 다하겠습니다.` },
+          { role: 'assistant' as const, content: `{"ratio":65,"highlighted":"[[호랑이도 풀밭이 있어야 살아갈 수 있습니다. 자연의 이치가 그렇듯,]] 우리 경제 역시 혼자서는 지속될 수 없습니다. 한화오션은 하청업체 노동자에게도 본사와 동일한 성과급을 지급하는 등 협력업체와의 임금 격차를 줄이는 데 연간 890억 원을 투입했습니다. [[이러한 상생의 가치가 대한민국 곳곳에 퍼져나갈 수 있도록 최선을 다하겠습니다.]]","core":"한화오션이 하청업체에 동일 성과급 지급, 연 890억 투입"}` },
+        ] : []),
         { role: 'user', content: userMsg },
       ],
       temperature: mode === 'decode' ? 0.4 : 0.9,
