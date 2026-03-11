@@ -23,6 +23,22 @@ function snapToPreset(val: number): number {
   return closest
 }
 
+// 모드별 색상 테마
+const THEME = {
+  decode: {
+    pill: '#D4451A',       // 번트 오렌지
+    accent: 'burnt',
+    btnBg: '#D4451A',
+    btnHover: '#C2410C',
+  },
+  package: {
+    pill: '#2563EB',       // 블루
+    accent: 'blue',
+    btnBg: '#2563EB',
+    btnHover: '#1D4ED8',
+  },
+}
+
 export default function App() {
   const [mode, setMode] = useState<Mode>('decode')
   const [input, setInput] = useState('')
@@ -31,8 +47,6 @@ export default function App() {
   const [decodeResult, setDecodeResult] = useState<DecodeResult | null>(null)
   const [packageResult, setPackageResult] = useState<PackageResult | null>(null)
   const [sliderValue, setSliderValue] = useState(0)
-  const [showSettings, setShowSettings] = useState(false)
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('emptytalk_apikey') || '')
   const [copyToast, setCopyToast] = useState(false)
   const [gaugeAnimated, setGaugeAnimated] = useState(false)
 
@@ -40,10 +54,7 @@ export default function App() {
   const packageRef = useRef<HTMLButtonElement>(null)
   const toggleRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (apiKey) localStorage.setItem('emptytalk_apikey', apiKey)
-    else localStorage.removeItem('emptytalk_apikey')
-  }, [apiKey])
+  const theme = THEME[mode]
 
   // Reset results when mode changes
   useEffect(() => {
@@ -63,10 +74,6 @@ export default function App() {
 
   const handleSubmit = useCallback(async () => {
     if (!input.trim()) return
-    if (!apiKey) {
-      setShowSettings(true)
-      return
-    }
 
     setLoading(true)
     setError('')
@@ -76,10 +83,10 @@ export default function App() {
 
     try {
       if (mode === 'decode') {
-        const result = await analyzeText(input, apiKey)
+        const result = await analyzeText(input)
         setDecodeResult(result)
       } else {
-        const result = await generatePackaged(input, apiKey)
+        const result = await generatePackaged(input)
         setPackageResult(result)
         setSliderValue(0)
       }
@@ -88,7 +95,7 @@ export default function App() {
     } finally {
       setLoading(false)
     }
-  }, [input, apiKey, mode])
+  }, [input, mode])
 
   const handleCopy = useCallback((text: string) => {
     navigator.clipboard.writeText(text)
@@ -135,16 +142,6 @@ export default function App() {
             beta
           </span>
         </div>
-        <button
-          onClick={() => setShowSettings(true)}
-          className="p-2.5 rounded-xl hover:bg-cream-300 transition-colors text-ink-500 hover:text-ink-900"
-          title="설정"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-          </svg>
-        </button>
       </header>
 
       {/* Hero */}
@@ -164,7 +161,11 @@ export default function App() {
         <div className="mode-toggle" ref={toggleRef}>
           <div
             className="mode-toggle-pill"
-            style={{ left: pillStyle.left, width: pillStyle.width }}
+            style={{
+              left: pillStyle.left,
+              width: pillStyle.width,
+              background: theme.pill,
+            }}
           />
           <button
             ref={decodeRef}
@@ -198,6 +199,9 @@ export default function App() {
             </div>
             <textarea
               className="input-area flex-1"
+              style={{
+                borderColor: input ? theme.pill + '40' : undefined,
+              }}
               placeholder={
                 mode === 'decode'
                   ? '거래처 메일, 상사 피드백, 오랜만에 온 카톡...\n빈말이 의심되는 텍스트를 붙여넣어보세요'
@@ -212,6 +216,11 @@ export default function App() {
             <div className="flex items-center gap-3">
               <button
                 className="btn-primary"
+                style={{
+                  background: theme.btnBg,
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = theme.btnHover)}
+                onMouseLeave={e => (e.currentTarget.style.background = theme.btnBg)}
                 onClick={handleSubmit}
                 disabled={loading || !input.trim()}
               >
@@ -268,7 +277,9 @@ export default function App() {
               <div className="flex-1 flex items-center justify-center py-16 rounded-2xl border border-cream-300 bg-white">
                 <div className="text-center">
                   <div className="loading-dots mb-4 justify-center flex">
-                    <span /><span /><span />
+                    <span style={{ background: theme.pill }} />
+                    <span style={{ background: theme.pill }} />
+                    <span style={{ background: theme.pill }} />
                   </div>
                   <p className="text-sm text-ink-400">
                     {mode === 'decode' ? '빈말을 찾고 있습니다...' : '빈말을 섞고 있습니다...'}
@@ -368,7 +379,7 @@ export default function App() {
 
             {/* Package Result */}
             {packageResult && !loading && (
-              <div className="result-card flex flex-col gap-6">
+              <div className="result-card flex flex-col gap-6" style={{ borderColor: '#BFDBFE' }}>
                 {/* Slider */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
@@ -380,7 +391,10 @@ export default function App() {
                   <div className="density-slider-track relative mb-3">
                     <div
                       className="density-slider-fill"
-                      style={{ width: `${sliderValue}%` }}
+                      style={{
+                        width: `${sliderValue}%`,
+                        background: 'linear-gradient(90deg, #60A5FA, #2563EB)',
+                      }}
                     />
                     <input
                       type="range"
@@ -398,6 +412,11 @@ export default function App() {
                       <button
                         key={p.value}
                         className={`preset-label ${snapToPreset(sliderValue) === p.value ? 'active' : ''}`}
+                        style={
+                          snapToPreset(sliderValue) === p.value
+                            ? { background: '#2563EB' }
+                            : undefined
+                        }
                         onClick={() => setSliderValue(p.value)}
                       >
                         {p.label}
@@ -412,7 +431,7 @@ export default function App() {
                     <span className="text-xs font-semibold text-ink-500 block mb-2">
                       {currentVersion.label} 모드
                     </span>
-                    <div className="bg-cream-50 border border-cream-300 rounded-2xl p-5">
+                    <div className="rounded-2xl p-5" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
                       <p className="text-sm leading-relaxed text-ink-900 whitespace-pre-wrap">
                         {currentVersion.text}
                       </p>
@@ -442,11 +461,12 @@ export default function App() {
                     {packageResult.versions.map(v => (
                       <button
                         key={v.level}
-                        className={`text-left p-3 rounded-xl text-xs leading-relaxed transition-all ${
+                        className="text-left p-3 rounded-xl text-xs leading-relaxed transition-all"
+                        style={
                           snapToPreset(sliderValue) === v.level
-                            ? 'bg-burnt-50 border border-burnt-200 text-ink-900'
-                            : 'bg-cream-100 border border-transparent text-ink-500 hover:bg-cream-200'
-                        }`}
+                            ? { background: '#EFF6FF', border: '1px solid #93C5FD', color: '#1C1917' }
+                            : { background: '#F5F1EB', border: '1px solid transparent', color: '#78716C' }
+                        }
                         onClick={() => setSliderValue(v.level)}
                       >
                         <span className="font-semibold">{v.label} ({v.level}%)</span>
@@ -465,57 +485,6 @@ export default function App() {
       <footer className="text-center py-8 px-6">
         <p>빈말번역기 &middot; AI 참고 분석이며 실제 의도와 다를 수 있습니다</p>
       </footer>
-
-      {/* Settings Panel */}
-      {showSettings && (
-        <>
-          <div className="settings-backdrop" onClick={() => setShowSettings(false)} />
-          <div className="settings-panel">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-ink-900">설정</h2>
-              <button
-                onClick={() => setShowSettings(false)}
-                className="p-2 rounded-xl hover:bg-cream-200 transition-colors text-ink-500"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-
-            <div>
-              <label className="text-sm font-semibold text-ink-900 block mb-2">
-                OpenAI API Key
-              </label>
-              <p className="text-xs text-ink-400 mb-3">
-                GPT-4o-mini를 사용합니다. API 키는 브라우저에만 저장됩니다.
-              </p>
-              <input
-                type="password"
-                className="api-key-input"
-                placeholder="sk-..."
-                value={apiKey}
-                onChange={e => setApiKey(e.target.value)}
-              />
-              {apiKey && (
-                <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  API 키가 설정되었습니다
-                </p>
-              )}
-            </div>
-
-            <div className="mt-auto pt-8 border-t border-cream-300">
-              <p className="text-xs text-ink-400 leading-relaxed">
-                빈말번역기는 텍스트를 분석하여 빈말과 진심을 구분하는 AI 도구입니다.
-                분석 결과는 참고용이며, 실제 의도와 다를 수 있습니다.
-              </p>
-            </div>
-          </div>
-        </>
-      )}
 
       {/* Copy Toast */}
       <div className={`copy-toast ${copyToast ? 'visible' : ''}`}>
