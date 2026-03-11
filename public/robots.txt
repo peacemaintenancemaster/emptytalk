@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://empty-talk.pages.dev/sitemap.xml
