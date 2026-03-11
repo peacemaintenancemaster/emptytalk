@@ -72,6 +72,15 @@ export default function App() {
     fetchUsage().then(info => setUsed(info.used))
   }, [])
 
+  // 카카오 애드핏 스크립트 로드
+  useEffect(() => {
+    if (document.querySelector('script[src*="ba.min.js"]')) return
+    const script = document.createElement('script')
+    script.src = '//t1.daumcdn.net/kas/static/ba.min.js'
+    script.async = true
+    document.body.appendChild(script)
+  }, [])
+
   useEffect(() => {
     setDecodeResult(null)
     setPackageResult(null)
@@ -523,6 +532,20 @@ export default function App() {
           </div>
         </div>
       </main>
+
+      {/* Kakao AdFit */}
+      <div className="flex justify-center py-4">
+        {/* PC 광고 (728x90) */}
+        <ins className="kakao_ad_area hidden md:block" style={{ display: 'none' }}
+          data-ad-unit="DAN-JSgfcpw0CcJVep1O"
+          data-ad-width="728"
+          data-ad-height="90" />
+        {/* 모바일 광고 (320x50) */}
+        <ins className="kakao_ad_area block md:hidden" style={{ display: 'none' }}
+          data-ad-unit="DAN-j9l7WVHVCzDHfdSr"
+          data-ad-width="320"
+          data-ad-height="50" />
+      </div>
 
       {/* Footer */}
       <footer className="text-center py-8 px-6 flex flex-col items-center gap-3">
