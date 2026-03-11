@@ -516,7 +516,7 @@ export default function App() {
                 </div>
                 <div className="rounded-xl px-4 py-3" style={{ background: '#F5F5F4', border: '1px solid #E7E5E4' }}>
                   <span className="text-xs text-ink-400">원문</span>
-                  <p className="text-sm text-ink-700 mt-1">{text}</p>
+                  <p className="text-sm text-ink-700 mt-1">{input}</p>
                 </div>
                 <div className="rounded-2xl p-5" style={{ background: '#EEF2FF', border: '1px solid #C7D2FE' }}>
                   <p className="text-sm leading-relaxed text-ink-900 whitespace-pre-wrap">
