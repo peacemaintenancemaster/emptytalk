@@ -245,15 +245,15 @@ export default function App() {
               <label className="text-xs font-semibold text-ink-500 uppercase tracking-wider">
                 {mode === 'decode' ? '분석할 텍스트' : '핵심 메시지'}
               </label>
-              <span className={`text-xs ${input.length >= (mode === 'decode' ? 500 : 100) ? 'text-red-500 font-semibold' : 'text-ink-400'}`}>
-                {input.length}/{'\u2009'}{mode === 'decode' ? '500' : '100'}자
+              <span className={`text-xs ${input.length >= (mode === 'decode' ? 1000 : 100) ? 'text-red-500 font-semibold' : 'text-ink-400'}`}>
+                {input.length}/{'\u2009'}{mode === 'decode' ? '1,000' : '100'}자
               </span>
             </div>
             <textarea
               className="input-area flex-1"
-              maxLength={mode === 'decode' ? 500 : 100}
+              maxLength={mode === 'decode' ? 1000 : 100}
               style={{
-                borderColor: input.length >= (mode === 'decode' ? 500 : 100) ? '#EF4444' : input ? theme.pill + '40' : undefined,
+                borderColor: input.length >= (mode === 'decode' ? 1000 : 100) ? '#EF4444' : input ? theme.pill + '40' : undefined,
               }}
               placeholder={
                 mode === 'decode'

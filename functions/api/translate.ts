@@ -138,7 +138,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return Response.json({ error: 'Text is required' }, { status: 400 })
   }
   const mode = body.mode
-  const maxLen = mode === 'decode' ? 500 : 100
+  const maxLen = mode === 'decode' ? 1000 : 100
   if (text.length > maxLen) {
     return Response.json({ error: `Text too long (max ${maxLen} chars)` }, { status: 400 })
   }
