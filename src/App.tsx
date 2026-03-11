@@ -558,7 +558,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="text-center py-8 px-6 flex flex-col items-center gap-3">
-        <p>AI 참고 분석이며 실제 의도와 다를 수 있습니다</p>
+        <p>입력 및 출력 내용이 AI 모델 개선에 활용될 수 있습니다</p>
         <div className="flex items-center gap-2" style={{ fontSize: '0.7rem' }}>
           <button
             className="footer-link"
