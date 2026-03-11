@@ -1,18 +1,37 @@
 export interface DecodeResult {
-  percentage: number
-  segments: { text: string; type: 'empty' | 'genuine' }[]
-  summary: string
+  ratio: number
+  highlighted: string
+  core: string
+  _used?: number
+  _limit?: number
 }
 
 export interface PackageResult {
-  versions: { level: number; label: string; text: string }[]
+  result: string
+  _used?: number
+  _limit?: number
+}
+
+export interface UsageInfo {
+  used: number
+  limit: number
+}
+
+export async function fetchUsage(): Promise<UsageInfo> {
+  try {
+    const res = await fetch('/api/usage')
+    if (!res.ok) return { used: 0, limit: 5 }
+    return res.json()
+  } catch {
+    return { used: 0, limit: 5 }
+  }
 }
 
 export async function analyzeText(text: string): Promise<DecodeResult> {
-  const res = await fetch('/api/analyze', {
+  const res = await fetch('/api/translate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ mode: 'decode', text }),
   })
 
   if (!res.ok) {
@@ -23,11 +42,11 @@ export async function analyzeText(text: string): Promise<DecodeResult> {
   return res.json()
 }
 
-export async function generatePackaged(text: string): Promise<PackageResult> {
-  const res = await fetch('/api/package', {
+export async function generatePackaged(text: string, level: number): Promise<PackageResult> {
+  const res = await fetch('/api/translate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ mode: 'package', text, level }),
   })
 
   if (!res.ok) {

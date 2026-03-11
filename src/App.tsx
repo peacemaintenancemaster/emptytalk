@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { analyzeText, generatePackaged, type DecodeResult, type PackageResult } from './api'
+import { analyzeText, generatePackaged, fetchUsage, type DecodeResult, type PackageResult } from './api'
 
 type Mode = 'decode' | 'package'
 
@@ -10,33 +10,39 @@ const PRESETS = [
   { value: 100, label: '풀빈말' },
 ]
 
-function snapToPreset(val: number): number {
-  let closest = PRESETS[0].value
-  let minDist = Math.abs(val - closest)
-  for (const p of PRESETS) {
-    const dist = Math.abs(val - p.value)
-    if (dist < minDist) {
-      minDist = dist
-      closest = p.value
-    }
-  }
-  return closest
-}
-
-// 모드별 색상 테마
 const THEME = {
   decode: {
-    pill: '#D4451A',       // 번트 오렌지
-    accent: 'burnt',
+    pill: '#D4451A',
     btnBg: '#D4451A',
     btnHover: '#C2410C',
   },
   package: {
-    pill: '#6366F1',       // 인디고
-    accent: 'indigo',
+    pill: '#6366F1',
     btnBg: '#6366F1',
     btnHover: '#4F46E5',
   },
+}
+
+// [[빈말]] 형식을 파싱하여 세그먼트 배열로 변환
+function parseHighlighted(text: string): { text: string; empty: boolean }[] {
+  const segments: { text: string; empty: boolean }[] = []
+  const regex = /\[\[(.*?)\]\]/gs
+  let lastIndex = 0
+  let match
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ text: text.slice(lastIndex, match.index), empty: false })
+    }
+    segments.push({ text: match[1], empty: true })
+    lastIndex = regex.lastIndex
+  }
+
+  if (lastIndex < text.length) {
+    segments.push({ text: text.slice(lastIndex), empty: false })
+  }
+
+  return segments
 }
 
 export default function App() {
@@ -46,17 +52,24 @@ export default function App() {
   const [error, setError] = useState('')
   const [decodeResult, setDecodeResult] = useState<DecodeResult | null>(null)
   const [packageResult, setPackageResult] = useState<PackageResult | null>(null)
-  const [sliderValue, setSliderValue] = useState(0)
+  const [sliderValue, setSliderValue] = useState(60)
   const [copyToast, setCopyToast] = useState(false)
   const [gaugeAnimated, setGaugeAnimated] = useState(false)
+  const [used, setUsed] = useState(0)
+  const [limit] = useState(5)
 
   const decodeRef = useRef<HTMLButtonElement>(null)
   const packageRef = useRef<HTMLButtonElement>(null)
   const toggleRef = useRef<HTMLDivElement>(null)
 
   const theme = THEME[mode]
+  const remaining = Math.max(0, limit - used)
 
-  // Reset results when mode changes
+  // 페이지 로드 시 사용 횟수 가져오기
+  useEffect(() => {
+    fetchUsage().then(info => setUsed(info.used))
+  }, [])
+
   useEffect(() => {
     setDecodeResult(null)
     setPackageResult(null)
@@ -64,7 +77,6 @@ export default function App() {
     setGaugeAnimated(false)
   }, [mode])
 
-  // Trigger gauge animation after decode result arrives
   useEffect(() => {
     if (decodeResult) {
       const timer = setTimeout(() => setGaugeAnimated(true), 100)
@@ -73,7 +85,7 @@ export default function App() {
   }, [decodeResult])
 
   const handleSubmit = useCallback(async () => {
-    if (!input.trim()) return
+    if (!input.trim() || remaining <= 0) return
 
     setLoading(true)
     setError('')
@@ -85,17 +97,18 @@ export default function App() {
       if (mode === 'decode') {
         const result = await analyzeText(input)
         setDecodeResult(result)
+        if (result._used != null) setUsed(result._used)
       } else {
-        const result = await generatePackaged(input)
+        const result = await generatePackaged(input, sliderValue)
         setPackageResult(result)
-        setSliderValue(0)
+        if (result._used != null) setUsed(result._used)
       }
     } catch (e: any) {
       setError(e.message || '알 수 없는 오류가 발생했습니다')
     } finally {
       setLoading(false)
     }
-  }, [input, mode])
+  }, [input, mode, sliderValue, remaining])
 
   const handleCopy = useCallback((text: string) => {
     navigator.clipboard.writeText(text)
@@ -103,17 +116,11 @@ export default function App() {
     setTimeout(() => setCopyToast(false), 2000)
   }, [])
 
-  const handleSliderChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setSliderValue(Number(e.target.value))
-  }, [])
-
-  const handleSliderEnd = useCallback(() => {
-    setSliderValue(snapToPreset(sliderValue))
-  }, [sliderValue])
-
-  const currentVersion = packageResult?.versions.find(
-    v => v.level === snapToPreset(sliderValue)
+  const closestPreset = PRESETS.reduce((prev, curr) =>
+    Math.abs(curr.value - sliderValue) < Math.abs(prev.value - sliderValue) ? curr : prev
   )
+
+  const segments = decodeResult ? parseHighlighted(decodeResult.highlighted) : []
 
   // Toggle pill position
   const [pillStyle, setPillStyle] = useState({ left: 0, width: 0 })
@@ -133,9 +140,7 @@ export default function App() {
   return (
     <div
       className="min-h-screen flex flex-col transition-colors duration-500"
-      style={{
-        background: mode === 'decode' ? '#F5F1EB' : '#EEF2FF',
-      }}
+      style={{ background: mode === 'decode' ? '#F5F1EB' : '#EEF2FF' }}
     >
       {/* Header */}
       <header className="px-6 md:px-12 py-6 flex items-center justify-between">
@@ -145,6 +150,23 @@ export default function App() {
           </h1>
           <span className="hidden sm:inline text-xs font-medium text-ink-400 bg-cream-200 px-2.5 py-1 rounded-full">
             beta
+          </span>
+        </div>
+        {/* 사용 횟수 */}
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1">
+            {Array.from({ length: limit }, (_, i) => (
+              <div
+                key={i}
+                className="w-2 h-2 rounded-full transition-colors duration-300"
+                style={{
+                  background: i < used ? '#D6D3D1' : theme.pill,
+                }}
+              />
+            ))}
+          </div>
+          <span className={`text-xs font-medium ${remaining <= 1 ? 'text-red-500' : 'text-ink-400'}`}>
+            {remaining}/{limit}
           </span>
         </div>
       </header>
@@ -203,7 +225,7 @@ export default function App() {
                 {mode === 'decode' ? '분석할 텍스트' : '핵심 메시지'}
               </label>
               <span className={`text-xs ${input.length >= 1000 ? 'text-red-500 font-semibold' : 'text-ink-400'}`}>
-                {input.length > 0 && `${input.length} / 1,000자`}
+                {input.length}/{'\u2009'}1,000자
               </span>
             </div>
             <textarea
@@ -223,16 +245,69 @@ export default function App() {
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleSubmit()
               }}
             />
+
+            {/* 포장 모드 슬라이더 */}
+            {mode === 'package' && (
+              <div className="rounded-2xl border border-indigo-200 bg-white p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-semibold text-ink-500">빈말 농도</span>
+                  <span className="text-lg font-bold" style={{ color: '#6366F1' }}>
+                    {sliderValue}%
+                    <span className="text-xs font-medium text-ink-400 ml-1.5">
+                      ({closestPreset.label})
+                    </span>
+                  </span>
+                </div>
+                <div className="density-slider-track relative mb-3">
+                  <div
+                    className="density-slider-fill"
+                    style={{
+                      width: `${sliderValue}%`,
+                      background: 'linear-gradient(90deg, #A5B4FC, #6366F1)',
+                    }}
+                  />
+                  <input
+                    type="range"
+                    className="density-slider relative z-10"
+                    min="0"
+                    max="100"
+                    value={sliderValue}
+                    onChange={e => setSliderValue(Number(e.target.value))}
+                  />
+                </div>
+                <div className="flex justify-between">
+                  {PRESETS.map(p => (
+                    <button
+                      key={p.value}
+                      className={`preset-label ${sliderValue === p.value ? 'active' : ''}`}
+                      style={
+                        sliderValue === p.value
+                          ? { background: '#6366F1' }
+                          : undefined
+                      }
+                      onClick={() => setSliderValue(p.value)}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center gap-3">
               <button
                 className="btn-primary"
                 style={{
-                  background: theme.btnBg,
+                  background: remaining <= 0 ? '#A8A29E' : theme.btnBg,
                 }}
-                onMouseEnter={e => (e.currentTarget.style.background = theme.btnHover)}
-                onMouseLeave={e => (e.currentTarget.style.background = theme.btnBg)}
+                onMouseEnter={e => {
+                  if (remaining > 0) e.currentTarget.style.background = theme.btnHover
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = remaining <= 0 ? '#A8A29E' : theme.btnBg
+                }}
                 onClick={handleSubmit}
-                disabled={loading || !input.trim()}
+                disabled={loading || !input.trim() || remaining <= 0}
               >
                 {loading ? (
                   <>
@@ -241,9 +316,11 @@ export default function App() {
                       <span /><span /><span />
                     </span>
                   </>
+                ) : remaining <= 0 ? (
+                  '오늘 사용 횟수 소진'
                 ) : (
                   <>
-                    {mode === 'decode' ? '빈말 해독하기' : '빈말 생성하기'}
+                    {mode === 'decode' ? '빈말 해독하기' : `빈말 ${sliderValue}% 포장하기`}
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M5 12h14M12 5l7 7-7 7" />
                     </svg>
@@ -309,19 +386,19 @@ export default function App() {
                   <div className="flex items-end justify-between mb-2">
                     <span className="text-xs font-semibold text-ink-500">빈말 비율</span>
                     <span className="percentage-display">
-                      {decodeResult.percentage}%
+                      {decodeResult.ratio}%
                     </span>
                   </div>
                   <div className="gauge-track">
                     <div
                       className="gauge-fill"
-                      style={{ width: gaugeAnimated ? `${decodeResult.percentage}%` : '0%' }}
+                      style={{ width: gaugeAnimated ? `${decodeResult.ratio}%` : '0%' }}
                     />
                   </div>
                   <p className="text-xs text-ink-400 mt-2">
-                    {decodeResult.percentage >= 70
+                    {decodeResult.ratio >= 70
                       ? '빈말의 향연이었네요'
-                      : decodeResult.percentage >= 40
+                      : decodeResult.ratio >= 40
                       ? '적당한 수준의 빈말입니다'
                       : '꽤 솔직한 메시지네요'}
                   </p>
@@ -331,10 +408,10 @@ export default function App() {
                 <div>
                   <span className="text-xs font-semibold text-ink-500 block mb-3">원문 분석</span>
                   <div className="text-sm leading-relaxed">
-                    {decodeResult.segments.map((seg, i) => (
+                    {segments.map((seg, i) => (
                       <span
                         key={i}
-                        className={seg.type === 'empty' ? 'segment-empty' : 'segment-genuine'}
+                        className={seg.empty ? 'segment-empty' : 'segment-genuine'}
                       >
                         {seg.text}
                       </span>
@@ -345,7 +422,7 @@ export default function App() {
                       <span className="w-3 h-0.5 bg-ink-300 inline-block rounded" style={{textDecoration:'line-through'}} /> 빈말
                     </span>
                     <span className="flex items-center gap-1.5 text-xs text-ink-400">
-                      <span className="w-3 h-2 rounded-sm inline-block" style={{background:'linear-gradient(to top, #FFEDD5 40%, transparent 40%)'}} /> 진심
+                      <span className="w-3 h-2 rounded-sm inline-block" style={{background:'#FFF7ED', borderBottom:'2px solid #F59E0B'}} /> 진심
                     </span>
                   </div>
                 </div>
@@ -355,7 +432,7 @@ export default function App() {
                   <span className="text-xs font-semibold text-ink-500 block mb-2">한 줄 요약</span>
                   <div className="summary-box">
                     <p className="text-sm font-medium text-ink-900">
-                      {decodeResult.summary}
+                      {decodeResult.core}
                     </p>
                   </div>
                 </div>
@@ -364,7 +441,7 @@ export default function App() {
                 <div className="flex gap-2 pt-2">
                   <button
                     className="btn-secondary"
-                    onClick={() => handleCopy(decodeResult.summary)}
+                    onClick={() => handleCopy(decodeResult.core)}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
@@ -375,7 +452,7 @@ export default function App() {
                   <button
                     className="btn-secondary"
                     onClick={() => {
-                      const shareText = `이 메시지의 빈말 비율: ${decodeResult.percentage}%\n핵심: ${decodeResult.summary}\n\n빈말번역기로 분석해보세요!`
+                      const shareText = `이 메시지의 빈말 비율: ${decodeResult.ratio}%\n핵심: ${decodeResult.core}\n\n빈말번역기로 분석해보세요!`
                       handleCopy(shareText)
                     }}
                   >
@@ -392,101 +469,36 @@ export default function App() {
 
             {/* Package Result */}
             {packageResult && !loading && (
-              <div className="result-card flex flex-col gap-6" style={{ borderColor: '#C7D2FE' }}>
-                {/* Slider */}
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-xs font-semibold text-ink-500">빈말 농도</span>
-                    <span className="text-sm font-bold text-ink-900">
-                      {snapToPreset(sliderValue)}%
-                    </span>
-                  </div>
-                  <div className="density-slider-track relative mb-3">
-                    <div
-                      className="density-slider-fill"
-                      style={{
-                        width: `${sliderValue}%`,
-                        background: 'linear-gradient(90deg, #A5B4FC, #6366F1)',
-                      }}
-                    />
-                    <input
-                      type="range"
-                      className="density-slider relative z-10"
-                      min="0"
-                      max="100"
-                      value={sliderValue}
-                      onChange={handleSliderChange}
-                      onMouseUp={handleSliderEnd}
-                      onTouchEnd={handleSliderEnd}
-                    />
-                  </div>
-                  <div className="flex justify-between">
-                    {PRESETS.map(p => (
-                      <button
-                        key={p.value}
-                        className={`preset-label ${snapToPreset(sliderValue) === p.value ? 'active' : ''}`}
-                        style={
-                          snapToPreset(sliderValue) === p.value
-                            ? { background: '#6366F1' }
-                            : undefined
-                        }
-                        onClick={() => setSliderValue(p.value)}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
+              <div className="result-card flex flex-col gap-5" style={{ borderColor: '#C7D2FE' }}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-ink-500">
+                    빈말 {sliderValue}% 포장 결과
+                  </span>
+                  <span className="text-xs font-medium px-2.5 py-1 rounded-full"
+                    style={{ background: '#EEF2FF', color: '#6366F1' }}
+                  >
+                    {closestPreset.label}
+                  </span>
                 </div>
-
-                {/* Generated Text */}
-                {currentVersion && (
-                  <div>
-                    <span className="text-xs font-semibold text-ink-500 block mb-2">
-                      {currentVersion.label} 모드
-                    </span>
-                    <div className="rounded-2xl p-5" style={{ background: '#EEF2FF', border: '1px solid #C7D2FE' }}>
-                      <p className="text-sm leading-relaxed text-ink-900 whitespace-pre-wrap">
-                        {currentVersion.text}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-between mt-3">
-                      <span className="text-xs text-ink-400">
-                        {currentVersion.text.length}자
-                      </span>
-                      <button
-                        className="btn-secondary"
-                        onClick={() => handleCopy(currentVersion.text)}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                        </svg>
-                        복사하기
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* All versions preview */}
-                <div>
-                  <span className="text-xs font-semibold text-ink-500 block mb-3">전체 비교</span>
-                  <div className="flex flex-col gap-2">
-                    {packageResult.versions.map(v => (
-                      <button
-                        key={v.level}
-                        className="text-left p-3 rounded-xl text-xs leading-relaxed transition-all"
-                        style={
-                          snapToPreset(sliderValue) === v.level
-                            ? { background: '#EEF2FF', border: '1px solid #A5B4FC', color: '#1C1917' }
-                            : { background: '#F5F1EB', border: '1px solid transparent', color: '#78716C' }
-                        }
-                        onClick={() => setSliderValue(v.level)}
-                      >
-                        <span className="font-semibold">{v.label} ({v.level}%)</span>
-                        <span className="block mt-1 line-clamp-2">{v.text}</span>
-                      </button>
-                    ))}
-                  </div>
+                <div className="rounded-2xl p-5" style={{ background: '#EEF2FF', border: '1px solid #C7D2FE' }}>
+                  <p className="text-sm leading-relaxed text-ink-900 whitespace-pre-wrap">
+                    {packageResult.result}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-ink-400">
+                    {packageResult.result.length}자
+                  </span>
+                  <button
+                    className="btn-secondary"
+                    onClick={() => handleCopy(packageResult.result)}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                    복사하기
+                  </button>
                 </div>
               </div>
             )}
