@@ -1,11 +1,15 @@
 // ── 시스템 프롬프트 (포장모드만 AI 사용) ──
-const SYSTEM_PACKAGE = `사용자가 누군가에게 보낼 말을 격식체로 순화. JSON만 출력.
-핵심: 사용자의 말을 "대신 전달"하는 것. 충고·조언·중재 절대 금지.
-욕설="귀하의 행태에 유감" 방향으로. 꺼져="물러나 주시기를" 방향으로.
-사과·화해·감정조절 권유 금지. 원문 인용 금지. 상황 지어내기 금지.
-1~3문장. 호칭 "귀하".
+const SYSTEM_PACKAGE = `사용자의 말을 격식체 만연체로 순화하여 "대신 전달". JSON만 출력.
+규칙:
+- 만연체 필수: 우회적·간접적 표현으로 본심을 여러 겹 포장. 짧고 직접적인 문장 금지.
+- 미사여구 적극 활용: "~하옵는 바이며", "~하시는 것이 마땅하리라 사료되옵기에" 등
+- 핵심 의도는 유지하되 문장 속에 깊이 매몰시킬 것.
+- 충고·조언·중재·사과권유·감정조절권유 절대 금지. 사용자 편에서 전달만.
+- 욕설→격식 유감 표현으로 치환. "꺼져"→"자리를 피해 주시옵기를" 방향.
+- 원문 인용 금지. 상황 지어내기 금지.
+- 3~5문장, 호칭 "귀하"
 t=의도(criticize|request|reject|complain|threaten|praise|general)
-{"g":"순화된 본론","t":"의도"}`
+{"g":"만연체로 순화된 본론","t":"의도"}`
 
 const DAILY_LIMIT = 5
 
@@ -148,6 +152,11 @@ const FILLER_WORDS = new Set([
   // 인사/격식 상투어
   '감사합니다','부탁드립니다','안녕하세요','수고','바랍니다','양해','송구','죄송',
   '인사','올립니다','여쭙니다','기원합니다','기원','건승','발전',
+  '인사드립니다','봄날','봄날에','여름','가을','겨울','계절','따스한','화창한',
+  '무궁한','무궁','만사형통','건강','행복','평안','기쁨','환한','따뜻한',
+  '베풀어주시는','배려','마음을','마음','소중한','귀하의','귀하','이해하지만',
+  '이해','감사하겠습니다','감사한','진심으로','전합니다','교류','이어가길',
+  '희망합니다','아름다운','너그러운','소중히','변함없는','축복',
   // 대명사/조사성
   '에서는','으로는','에서','대해','통해','위해','대한','관한','까지는',
   '이번','그간','평소','앞으로','향후','현재','최근','우리','저희','귀하',
@@ -157,36 +166,75 @@ const FILLER_WORDS = new Set([
 
 // 핵심 명사 추출 (빈말이 아닌 실질 키워드)
 function extractKeywords(text: string): string[] {
-  // 한글 2글자 이상 단어 추출
   const words = text.match(/[가-힣]{2,}/g) || []
-  // 영문+숫자 단어
   const engWords = text.match(/[a-zA-Z0-9]{2,}/g) || []
-  // 숫자 포함 한글 (1천800원 등)
   const numWords = text.match(/[0-9,]+[가-힣]+|[가-힣]+[0-9,]+[가-힣]*/g) || []
 
   const all = [...numWords, ...words, ...engWords]
-  // 필터: 빈말성 단어 제외, 짧은 조사 제외
   const meaningful = all.filter(w => {
     if (FILLER_WORDS.has(w)) return false
     if (w.length < 2) return false
-    // 일반적 어미/조사 패턴 제외
     if (/^(하[고는며면]|되[고는며면]|이[고는며면]|에서|으로|까지|부터|에게|한다|된다|인데)$/.test(w)) return false
     return true
   })
 
-  // 빈도 + 길이 기반 점수 매기기
   const freq = new Map<string, number>()
   for (const w of meaningful) {
     freq.set(w, (freq.get(w) || 0) + 1)
   }
 
-  // 점수 = 빈도 * 길이 (길고 자주 나오는 단어가 핵심)
   const scored = [...freq.entries()]
     .map(([word, count]) => ({ word, score: count * word.length }))
     .sort((a, b) => b.score - a.score)
 
-  // 상위 키워드 (중복 제거된 상태)
   return scored.map(s => s.word).slice(0, 10)
+}
+
+// 문장 분리
+function splitSentences(text: string): string[] {
+  // 마침표/물음표/느낌표/개행 기준으로 분리, 빈 문장 제거
+  return text
+    .split(/(?<=[.!?。])\s*|\n+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 3)
+}
+
+// 핵심 문장 선택 → 한 줄 요약 생성
+function extractCoreSentence(text: string, keywords: string[]): string {
+  const sentences = splitSentences(text)
+  if (sentences.length === 0) return text.slice(0, 50)
+
+  // 키워드 Set
+  const kwSet = new Set(keywords)
+
+  // 각 문장에 점수 부여: 포함된 키워드 수 × 키워드 길이합
+  const scored = sentences.map(sent => {
+    let score = 0
+    for (const kw of kwSet) {
+      if (sent.includes(kw)) {
+        score += kw.length
+      }
+    }
+    // 빈말성 문장 패턴 페널티
+    if (/^(안녕|감사|수고|부탁|인사|건강|바랍니다|드립니다|올립니다)/.test(sent)) score *= 0.2
+    if (/감사합니다\.?$|바랍니다\.?$|드립니다\.?$/.test(sent)) score *= 0.5
+    // 너무 짧은 문장 페널티
+    if (sent.length < 10) score *= 0.5
+    return { sent, score }
+  })
+
+  scored.sort((a, b) => b.score - a.score)
+
+  // 최고 점수 문장 선택
+  let best = scored[0].sent
+  // 문장이 너무 길면 잘라서 깔끔하게
+  if (best.length > 60) {
+    // 60자 근처에서 자연스러운 끊김점 찾기
+    const cutPoint = best.lastIndexOf(' ', 60)
+    best = best.slice(0, cutPoint > 30 ? cutPoint : 60) + '…'
+  }
+
+  return best
 }
 
 function serverDecode(text: string): { highlighted: string, ratio: number, core: string } {
@@ -197,40 +245,49 @@ function serverDecode(text: string): { highlighted: string, ratio: number, core:
 
   // 1) 핵심 키워드 추출
   const keywords = extractKeywords(text)
-  const core = keywords.slice(0, 8).join(' ') || text.slice(0, 30)
 
-  // 2) 전체를 빈말([[]])로 감싸기
+  // 2) 핵심 문장 선택 → 한 줄 요약 (연결된 문장)
+  const core = extractCoreSentence(text, keywords)
+
+  // 3) 요약 문장에서 키워드 재추출 (요약에 실제 등장하는 것만 마킹)
+  const coreKeywords = keywords.filter(kw => core.includes(kw))
+  // 요약에 없는 키워드도 일부 포함 (상위 5개까지)
+  const extraKeywords = keywords.filter(kw => !core.includes(kw)).slice(0, 5)
+  const allMarkers = [...coreKeywords, ...extraKeywords]
+
+  // 4) 전체를 빈말([[]])로 감싸기
   let highlighted = `[[${text}]]`
 
-  // 3) 핵심 키워드를 진심으로 꺼내기 (긴 키워드부터)
-  const sortedKw = [...keywords].sort((a, b) => b.length - a.length)
+  // 5) 핵심 키워드를 진심으로 꺼내기 (긴 키워드부터)
+  const sortedKw = [...allMarkers].sort((a, b) => b.length - a.length)
   const rescued = new Set<string>()
 
   for (const kw of sortedKw) {
     if (rescued.has(kw)) continue
     const esc = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    // 빈말 영역 안에서 키워드 첫 등장을 찾아서 꺼냄
-    const inEmpty = new RegExp(`\\[\\[([^\\]]*?)(${esc})([^\\[]*?)\\]\\]`)
-    const match = highlighted.match(inEmpty)
-    if (match) {
-      let rep = ''
-      if (match[1]) rep += `[[${match[1]}]]`
-      rep += match[2] // 진심으로 꺼냄
-      if (match[3]) rep += `[[${match[3]}]]`
-      highlighted = highlighted.replace(match[0], rep)
-      rescued.add(kw)
+    // 빈말 영역 안에서 키워드 등장을 찾아서 꺼냄 (최대 2회)
+    for (let i = 0; i < 2; i++) {
+      const inEmpty = new RegExp(`\\[\\[([^\\]]*?)(${esc})([^\\[]*?)\\]\\]`)
+      const match = highlighted.match(inEmpty)
+      if (match) {
+        let rep = ''
+        if (match[1]) rep += `[[${match[1]}]]`
+        rep += match[2]
+        if (match[3]) rep += `[[${match[3]}]]`
+        highlighted = highlighted.replace(match[0], rep)
+      } else break
     }
+    rescued.add(kw)
   }
 
-  // 4) 빈 [[ ]] 제거
+  // 6) 빈 [[ ]] 제거
   highlighted = highlighted.replace(/\[\[\]\]/g, '')
 
-  // 5) 인접한 [[ ]] 병합 (공백/구두점만 있는 진심 구간을 빈말로 흡수)
+  // 7) 인접한 [[ ]] 병합 (공백/구두점만 있는 진심 구간을 빈말로 흡수)
   highlighted = highlighted.replace(/\]\]([\s.,;:!?·…—\-–'"'"「」『』()（）《》<>]+)\[\[/g, '$1')
-  // 다시 한번 빈 블록 제거
   highlighted = highlighted.replace(/\[\[\]\]/g, '')
 
-  // 6) ratio 계산
+  // 8) ratio 계산
   const emMatch = highlighted.match(/\[\[(.*?)\]\]/gs)
   const emptyLen = emMatch ? emMatch.reduce((sum, seg) => sum + seg.length - 4, 0) : 0
   const plainLen = highlighted.replace(/\[\[|\]\]/g, '').length
@@ -239,7 +296,7 @@ function serverDecode(text: string): { highlighted: string, ratio: number, core:
     ratio = Math.min(99.9, Math.round((emptyLen / plainLen) * 1000) / 10)
   }
 
-  return { highlighted, ratio, core: core.length > 50 ? core.slice(0, 50) + '…' : core }
+  return { highlighted, ratio, core }
 }
 
 // ══════════════════════════════════════════
@@ -1073,11 +1130,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     messages: [
       { role: 'system', content: SYSTEM_PACKAGE },
       { role: 'user', content: '야 꺼져' },
-      { role: 'assistant', content: '{"g":"이 자리에서 물러나 주시기를 정중히 부탁드립니다.","t":"reject"}' },
+      { role: 'assistant', content: '{"g":"귀하께서 현 상황에서 계속하여 이 자리에 임하시는 것이 과연 쌍방에게 유익한 일인지에 대하여 심히 의문을 품지 않을 수 없사오며, 이에 귀하께서 스스로의 판단 하에 조속히 자리를 정리하여 주시옵기를 간곡히 말씀드리는 바이옵니다.","t":"reject"}' },
+      { role: 'user', content: '이 개새끼야 뭐하는 짓이야' },
+      { role: 'assistant', content: '{"g":"귀하의 최근 일련의 행보에 대하여 심심한 유감의 뜻을 표하지 않을 수 없사오며, 귀하께서 취하고 계신 처사가 과연 합당한 것인지에 대하여 깊은 회의를 느끼고 있사옵기에, 이에 대한 해명을 구하는 바이옵니다.","t":"criticize"}' },
       { role: 'user', content: text },
     ],
     temperature: 0.7,
-    max_tokens: 300,
+    max_tokens: 500,
     response_format: { type: 'json_object' },
   })
 
