@@ -514,16 +514,16 @@ export default function App() {
                 </div>
                 <div className="rounded-2xl p-5" style={{ background: '#EEF2FF', border: '1px solid #C7D2FE' }}>
                   <p className="text-sm leading-relaxed text-ink-900 whitespace-pre-wrap">
-                    {packageResult.result}
+                    {packageResult.result ?? '결과를 생성하지 못했습니다'}
                   </p>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-ink-400">
-                    {packageResult.result.length}자
+                    {packageResult.result?.length ?? 0}자
                   </span>
                   <button
                     className="btn-secondary"
-                    onClick={() => handleCopy(packageResult.result)}
+                    onClick={() => handleCopy(packageResult.result ?? '')}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
