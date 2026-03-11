@@ -32,10 +32,10 @@ const THEME = {
     btnHover: '#C2410C',
   },
   package: {
-    pill: '#2563EB',       // 블루
-    accent: 'blue',
-    btnBg: '#2563EB',
-    btnHover: '#1D4ED8',
+    pill: '#6366F1',       // 인디고
+    accent: 'indigo',
+    btnBg: '#6366F1',
+    btnHover: '#4F46E5',
   },
 }
 
@@ -131,7 +131,12 @@ export default function App() {
   }, [mode])
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div
+      className="min-h-screen flex flex-col transition-colors duration-500"
+      style={{
+        background: mode === 'decode' ? '#F5F1EB' : '#EEF2FF',
+      }}
+    >
       {/* Header */}
       <header className="px-6 md:px-12 py-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -146,10 +151,14 @@ export default function App() {
 
       {/* Hero */}
       <div className="text-center px-6 pt-4 pb-8">
-        <p className="text-2xl md:text-3xl font-bold tracking-tight text-ink-900 mb-3">
-          진심만 남기고, 빈말은 골라드립니다
+        <p className="text-2xl md:text-3xl font-bold tracking-tight mb-3 transition-colors duration-500"
+          style={{ color: mode === 'decode' ? '#1C1917' : '#1E1B4B' }}
+        >
+          진심만 남기고, 빈말은 걸러드립니다
         </p>
-        <p className="text-sm text-ink-400 max-w-md mx-auto leading-relaxed">
+        <p className="text-sm max-w-md mx-auto leading-relaxed transition-colors duration-500"
+          style={{ color: mode === 'decode' ? '#78716C' : '#6366F1' }}
+        >
           {mode === 'decode'
             ? '메시지를 붙여넣으면 빈말을 찾아드립니다'
             : '핵심만 쓰세요. 빈말은 저희가 채워드립니다'}
@@ -193,14 +202,15 @@ export default function App() {
               <label className="text-xs font-semibold text-ink-500 uppercase tracking-wider">
                 {mode === 'decode' ? '분석할 텍스트' : '핵심 메시지'}
               </label>
-              <span className="text-xs text-ink-400">
-                {input.length > 0 && `${input.length}자`}
+              <span className={`text-xs ${input.length >= 1000 ? 'text-red-500 font-semibold' : 'text-ink-400'}`}>
+                {input.length > 0 && `${input.length} / 1,000자`}
               </span>
             </div>
             <textarea
               className="input-area flex-1"
+              maxLength={1000}
               style={{
-                borderColor: input ? theme.pill + '40' : undefined,
+                borderColor: input.length >= 1000 ? '#EF4444' : input ? theme.pill + '40' : undefined,
               }}
               placeholder={
                 mode === 'decode'
@@ -259,7 +269,10 @@ export default function App() {
             )}
 
             {!error && !decodeResult && !packageResult && !loading && (
-              <div className="flex-1 flex items-center justify-center text-center py-16 rounded-2xl border-2 border-dashed border-cream-300">
+              <div
+                className="flex-1 flex items-center justify-center text-center py-16 rounded-2xl border-2 border-dashed transition-colors duration-500"
+                style={{ borderColor: mode === 'decode' ? '#E8E0D4' : '#C7D2FE' }}
+              >
                 <div className="text-ink-400">
                   <svg className="w-12 h-12 mx-auto mb-3 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -379,7 +392,7 @@ export default function App() {
 
             {/* Package Result */}
             {packageResult && !loading && (
-              <div className="result-card flex flex-col gap-6" style={{ borderColor: '#BFDBFE' }}>
+              <div className="result-card flex flex-col gap-6" style={{ borderColor: '#C7D2FE' }}>
                 {/* Slider */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
@@ -393,7 +406,7 @@ export default function App() {
                       className="density-slider-fill"
                       style={{
                         width: `${sliderValue}%`,
-                        background: 'linear-gradient(90deg, #60A5FA, #2563EB)',
+                        background: 'linear-gradient(90deg, #A5B4FC, #6366F1)',
                       }}
                     />
                     <input
@@ -414,7 +427,7 @@ export default function App() {
                         className={`preset-label ${snapToPreset(sliderValue) === p.value ? 'active' : ''}`}
                         style={
                           snapToPreset(sliderValue) === p.value
-                            ? { background: '#2563EB' }
+                            ? { background: '#6366F1' }
                             : undefined
                         }
                         onClick={() => setSliderValue(p.value)}
@@ -431,7 +444,7 @@ export default function App() {
                     <span className="text-xs font-semibold text-ink-500 block mb-2">
                       {currentVersion.label} 모드
                     </span>
-                    <div className="rounded-2xl p-5" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+                    <div className="rounded-2xl p-5" style={{ background: '#EEF2FF', border: '1px solid #C7D2FE' }}>
                       <p className="text-sm leading-relaxed text-ink-900 whitespace-pre-wrap">
                         {currentVersion.text}
                       </p>
@@ -464,7 +477,7 @@ export default function App() {
                         className="text-left p-3 rounded-xl text-xs leading-relaxed transition-all"
                         style={
                           snapToPreset(sliderValue) === v.level
-                            ? { background: '#EFF6FF', border: '1px solid #93C5FD', color: '#1C1917' }
+                            ? { background: '#EEF2FF', border: '1px solid #A5B4FC', color: '#1C1917' }
                             : { background: '#F5F1EB', border: '1px solid transparent', color: '#78716C' }
                         }
                         onClick={() => setSliderValue(v.level)}

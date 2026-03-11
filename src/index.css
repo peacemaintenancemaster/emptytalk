@@ -118,11 +118,12 @@ body::before {
 }
 
 .segment-genuine {
-  color: #1C1917;
-  background: linear-gradient(to top, #FFEDD5 40%, transparent 40%);
-  font-weight: 500;
-  padding: 0 2px;
-  border-radius: 2px;
+  color: #B45309;
+  background: #FFF7ED;
+  font-weight: 600;
+  padding: 2px 4px;
+  border-radius: 4px;
+  border-bottom: 2px solid #F59E0B;
 }
 
 /* ─── Custom Slider ─── */
