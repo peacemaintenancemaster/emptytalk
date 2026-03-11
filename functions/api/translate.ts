@@ -276,42 +276,29 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (part.normalized.length >= 2) seenGenuine.add(part.normalized)
       }
 
-      // 3) 진심 구간이 하나도 없으면 core 키워드를 강제로 진심 마킹
-      const hasGenuine = /\]\][^\[]+\[\[/.test(raw) ||
-        (raw.startsWith('[[') === false && /^[^\[]+/.test(raw)) ||
-        (raw.endsWith(']]') === false && /[^\]]+$/.test(raw))
-      // 전체가 [[ ]]로 감싸져 있는지 체크
-      const stripped = raw.replace(/\[\[|\]\]/g, '')
-      const allEmpty = raw === `[[${stripped}]]` || (!hasGenuine && raw.startsWith('[[') && raw.endsWith(']]'))
-      if (allEmpty && parsed.core && typeof parsed.core === 'string') {
-        // core에서 2글자 이상 한글 키워드 추출
-        const coreWords = parsed.core.match(/[가-힣a-zA-Z0-9]{2,}/g) || []
-        let forced = false
+      // 3) core 키워드가 빈말([[ ]] 안)에 있으면 강제로 진심으로 꺼냄
+      if (parsed.core && typeof parsed.core === 'string') {
+        const coreWords = (parsed.core.match(/[가-힣a-zA-Z0-9]{2,}/g) || [])
+          // 긴 키워드부터 처리 (부분 매칭 방지)
+          .sort((a: string, b: string) => b.length - a.length)
         for (const kw of coreWords) {
-          const idx = stripped.indexOf(kw)
-          if (idx !== -1) {
-            // 원문에서 해당 키워드 첫 등장 위치를 진심으로 마킹
-            const before = stripped.slice(0, idx)
-            const after = stripped.slice(idx + kw.length)
-            raw = `[[${before}]]${kw}[[${after}]]`
-            // 빈 [[ ]] 제거
-            raw = raw.replace(/\[\[\]\]/g, '')
-            forced = true
-            break
+          // 빈말 영역 안에서 키워드 첫 등장을 찾아서 꺼냄
+          const escKw = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          const inEmptyRegex = new RegExp(`\\[\\[([^\\]]*?)(${escKw})([^\\[]*?)\\]\\]`)
+          const match = raw.match(inEmptyRegex)
+          if (match) {
+            const before = match[1]
+            const keyword = match[2]
+            const after = match[3]
+            let replacement = ''
+            if (before) replacement += `[[${before}]]`
+            replacement += keyword
+            if (after) replacement += `[[${after}]]`
+            raw = raw.replace(match[0], replacement)
           }
         }
-        // core 키워드를 못 찾으면 가장 긴 명사구를 진심으로
-        if (!forced && stripped.length > 0) {
-          const nouns = stripped.match(/[가-힣]{2,}/g) || []
-          if (nouns.length > 0) {
-            const longest = nouns.sort((a, b) => b.length - a.length)[0]
-            const idx = stripped.indexOf(longest)
-            const before = stripped.slice(0, idx)
-            const after = stripped.slice(idx + longest.length)
-            raw = `[[${before}]]${longest}[[${after}]]`
-            raw = raw.replace(/\[\[\]\]/g, '')
-          }
-        }
+        // 빈 [[ ]] 제거
+        raw = raw.replace(/\[\[\]\]/g, '')
       }
 
       parsed.highlighted = raw
