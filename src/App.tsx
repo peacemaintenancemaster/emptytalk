@@ -541,14 +541,16 @@ export default function App() {
       </main>
 
       {/* Kakao AdFit */}
-      <div className="flex justify-center py-4">
-        {/* PC 광고 (728x90) */}
-        <ins className="kakao_ad_area hidden md:block" style={{ display: 'none' }}
+      {/* PC 광고 (728x90) - wrapper로 반응형 처리 */}
+      <div className="hidden md:flex justify-center py-4">
+        <ins className="kakao_ad_area" style={{ display: 'none' }}
           data-ad-unit="DAN-JSgfcpw0CcJVep1O"
           data-ad-width="728"
           data-ad-height="90" />
-        {/* 모바일 광고 (320x50) */}
-        <ins className="kakao_ad_area block md:hidden" style={{ display: 'none' }}
+      </div>
+      {/* 모바일 광고 (320x50) - wrapper로 반응형 처리 */}
+      <div className="flex md:hidden justify-center py-4">
+        <ins className="kakao_ad_area" style={{ display: 'none' }}
           data-ad-unit="DAN-j9l7WVHVCzDHfdSr"
           data-ad-width="320"
           data-ad-height="50" />
