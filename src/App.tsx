@@ -287,14 +287,16 @@ export default function App() {
                     ? '상당히 공손한 메시지가 되겠네요'
                     : '빈말의 향연이 펼쳐집니다'}
                 </p>
-                <div className="density-slider-track relative mb-3">
-                  <div
-                    className="density-slider-fill"
-                    style={{
-                      width: `${((sliderValue - 10) / 90) * 100}%`,
-                      background: 'linear-gradient(90deg, #A5B4FC, #6366F1)',
-                    }}
-                  />
+                <div className="density-slider-wrapper relative mb-3">
+                  <div className="density-slider-track">
+                    <div
+                      className="density-slider-fill"
+                      style={{
+                        width: `${((sliderValue - 10) / 90) * 100}%`,
+                        background: 'linear-gradient(90deg, #A5B4FC, #6366F1)',
+                      }}
+                    />
+                  </div>
                   <input
                     type="range"
                     className="density-slider"
