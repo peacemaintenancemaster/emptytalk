@@ -25,21 +25,23 @@ const THEME = {
 
 // [[빈말]] 형식을 파싱하여 세그먼트 배열로 변환
 function parseHighlighted(text: string): { text: string; empty: boolean }[] {
+  // 리터럴 \n을 실제 줄바꿈으로 변환
+  const cleaned = text.replace(/\\n/g, '\n')
   const segments: { text: string; empty: boolean }[] = []
   const regex = /\[\[(.*?)\]\]/gs
   let lastIndex = 0
   let match
 
-  while ((match = regex.exec(text)) !== null) {
+  while ((match = regex.exec(cleaned)) !== null) {
     if (match.index > lastIndex) {
-      segments.push({ text: text.slice(lastIndex, match.index), empty: false })
+      segments.push({ text: cleaned.slice(lastIndex, match.index), empty: false })
     }
     segments.push({ text: match[1], empty: true })
     lastIndex = regex.lastIndex
   }
 
-  if (lastIndex < text.length) {
-    segments.push({ text: text.slice(lastIndex), empty: false })
+  if (lastIndex < cleaned.length) {
+    segments.push({ text: cleaned.slice(lastIndex), empty: false })
   }
 
   return segments
@@ -434,15 +436,18 @@ export default function App() {
                 {/* Highlighted Text */}
                 <div>
                   <span className="text-xs font-semibold text-ink-500 block mb-3">원문 분석</span>
-                  <div className="text-sm leading-relaxed">
-                    {segments.map((seg, i) => (
+                  <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                    {segments.map((seg, i) => {
+                      const isWhitespace = !seg.text.trim()
+                      return (
                       <span
                         key={i}
-                        className={seg.empty ? 'segment-empty' : 'segment-genuine'}
+                        className={seg.empty ? 'segment-empty' : isWhitespace ? '' : 'segment-genuine'}
                       >
                         {seg.text}
                       </span>
-                    ))}
+                      )
+                    })}
                   </div>
                   <div className="flex gap-4 mt-3">
                     <span className="flex items-center gap-1.5 text-xs text-ink-400">
