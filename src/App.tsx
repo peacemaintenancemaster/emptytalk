@@ -133,7 +133,7 @@ export default function App() {
     Math.abs(curr.value - sliderValue) < Math.abs(prev.value - sliderValue) ? curr : prev
   )
 
-  const segments = decodeResult ? parseHighlighted(decodeResult.highlighted) : []
+  const segments = decodeResult?.highlighted ? parseHighlighted(decodeResult.highlighted) : []
 
   // Toggle pill position
   const [pillStyle, setPillStyle] = useState({ left: 0, width: 0 })
