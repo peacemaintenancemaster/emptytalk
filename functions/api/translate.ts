@@ -177,12 +177,20 @@ function postProcessDecode(raw: string, core: string | undefined): { highlighted
     if (part.normalized.length >= 2) seenGenuine.add(part.normalized)
   }
 
-  // 3) core 키워드가 빈말 안에 있으면 강제로 진심으로 꺼냄
+  // 3) core 키워드가 빈말 안에 있으면 강제로 진심으로 꺼냄 (이미 진심인 키워드는 스킵)
   if (core) {
     const coreWords = (core.match(/[가-힣a-zA-Z0-9]{2,}/g) || [])
       .sort((a: string, b: string) => b.length - a.length)
     for (const kw of coreWords) {
+      // 이미 진심으로 마킹된 키워드면 스킵
+      if (seenGenuine.has(kw)) continue
       const escKw = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      // 이미 진심 영역(]] ~ [[)에 존재하는지 체크
+      const genuineCheck = new RegExp(`\\]\\][^\\[]*${escKw}[^\\[]*\\[\\[`)
+      const atStart = new RegExp(`^[^\\[]*${escKw}`)
+      const atEnd = new RegExp(`${escKw}[^\\]]*$`)
+      if (genuineCheck.test(raw) || atStart.test(raw) || atEnd.test(raw)) continue
+      // 빈말 영역 안에서 키워드 첫 등장을 찾아서 꺼냄
       const inEmptyRegex = new RegExp(`\\[\\[([^\\]]*?)(${escKw})([^\\[]*?)\\]\\]`)
       const match = raw.match(inEmptyRegex)
       if (match) {
@@ -194,6 +202,7 @@ function postProcessDecode(raw: string, core: string | undefined): { highlighted
         replacement += keyword
         if (after) replacement += `[[${after}]]`
         raw = raw.replace(match[0], replacement)
+        seenGenuine.add(kw)
       }
     }
     raw = raw.replace(/\[\[\]\]/g, '')
