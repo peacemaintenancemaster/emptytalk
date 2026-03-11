@@ -232,36 +232,30 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       raw = raw.replace(/\]\]([\s.,;:!?·…—\-–'"'"「」『』()（）《》<>]+)\[\[/g, '$1')
 
       // 2) 같은 키워드가 진심으로 여러 번 나오면 첫 번째만 남기고 나머지는 빈말 처리
-      // 진심 구간(]] 와 [[ 사이) 추출
-      const genuineParts: string[] = []
+      const genuineParts: Array<{original: string, normalized: string}> = []
       const genuineRegex = /\]\]([^[]+)\[\[/g
-      // 맨 앞 진심 (시작이 [[ 가 아닌 경우)
       const startMatch = raw.match(/^([^[]+)\[\[/)
-      if (startMatch) genuineParts.push(startMatch[1].trim())
+      if (startMatch) genuineParts.push({ original: startMatch[1], normalized: startMatch[1].replace(/[\s.,;:!?·…—\-–'"'"「」『』()（）《》<>]/g, '') })
       let m: RegExpExecArray | null
       while ((m = genuineRegex.exec(raw)) !== null) {
-        genuineParts.push(m[1].trim())
+        genuineParts.push({ original: m[1], normalized: m[1].replace(/[\s.,;:!?·…—\-–'"'"「」『』()（）《》<>]/g, '') })
       }
-      // 맨 뒤 진심
       const endMatch = raw.match(/\]\]([^[]+)$/)
-      if (endMatch) genuineParts.push(endMatch[1].trim())
+      if (endMatch) genuineParts.push({ original: endMatch[1], normalized: endMatch[1].replace(/[\s.,;:!?·…—\-–'"'"「」『』()（）《》<>]/g, '') })
 
-      // 중복 키워드 체크: 2글자 이상 진심 단어가 이전에 이미 나왔으면 빈말 처리
       const seenGenuine = new Set<string>()
       for (const part of genuineParts) {
-        const normalized = part.replace(/[\s.,;:!?·…—\-–'"'"「」『』()（）《》<>]/g, '')
-        if (normalized.length >= 2 && seenGenuine.has(normalized)) {
-          // 이 진심 구간을 빈말로 바꾸기: ]]part[[ → part (빈말 안으로)
-          // 또는 시작/끝이면 [[part]] 로 감싸기
-          raw = raw.replace(`]]${part}[[`, part)
-          if (raw.startsWith(part + '[[')) {
-            raw = '[[' + part + raw.slice(part.length)
+        if (part.normalized.length >= 2 && seenGenuine.has(part.normalized)) {
+          // 원본 텍스트 그대로 매칭하여 빈말로 흡수
+          raw = raw.replace(`]]${part.original}[[`, part.original)
+          if (raw.startsWith(part.original + '[[')) {
+            raw = '[[' + part.original + raw.slice(part.original.length)
           }
-          if (raw.endsWith(']]' + part)) {
-            raw = raw.slice(0, -part.length) + part + ']]'
+          if (raw.endsWith(']]' + part.original)) {
+            raw = raw.slice(0, -part.original.length) + part.original + ']]'
           }
         }
-        if (normalized.length >= 2) seenGenuine.add(normalized)
+        if (part.normalized.length >= 2) seenGenuine.add(part.normalized)
       }
 
       parsed.highlighted = raw

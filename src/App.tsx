@@ -54,7 +54,7 @@ export default function App() {
   const [error, setError] = useState('')
   const [decodeResult, setDecodeResult] = useState<DecodeResult | null>(null)
   const [packageResult, setPackageResult] = useState<PackageResult | null>(null)
-  const [sliderValue, setSliderValue] = useState(30)
+  const [sliderValue, setSliderValue] = useState(70)
   const [copyToast, setCopyToast] = useState(false)
   const [gaugeAnimated, setGaugeAnimated] = useState(false)
   const [used, setUsed] = useState(0)
@@ -415,7 +415,7 @@ export default function App() {
                 {/* Percentage */}
                 <div>
                   <div className="flex items-end justify-between mb-2">
-                    <span className="text-xs font-semibold text-ink-500">빈말 비율</span>
+                    <span className="text-xs font-semibold text-ink-500">빈말 농도</span>
                     <span className="percentage-display">
                       {decodeResult.ratio}%
                     </span>
@@ -486,7 +486,7 @@ export default function App() {
                   <button
                     className="btn-secondary"
                     onClick={() => {
-                      const shareText = `이 메시지의 빈말 비율: ${decodeResult.ratio}%\n핵심: ${decodeResult.core}\n\n빈말번역기로 분석해보세요!`
+                      const shareText = `이 메시지의 빈말 농도: ${decodeResult.ratio}%\n핵심: ${decodeResult.core}\n\n빈말번역기로 분석해보세요!`
                       handleCopy(shareText)
                     }}
                   >
