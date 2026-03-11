@@ -259,12 +259,23 @@ export default function App() {
             {/* 포장 모드 슬라이더 */}
             {mode === 'package' && (
               <div className="rounded-2xl border border-indigo-200 bg-white p-5">
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-semibold text-ink-500">빈말 농도</span>
                   <span className="text-lg font-bold" style={{ color: '#6366F1' }}>
                     {sliderValue}%
                   </span>
                 </div>
+                <p className="text-xs text-ink-400 mb-3">
+                  {sliderValue <= 20
+                    ? '꽤나 직설적인 메시지가 될 거예요'
+                    : sliderValue <= 40
+                    ? '적당한 인삿말이 들어가겠네요'
+                    : sliderValue <= 60
+                    ? '무난한 비즈니스 메일 수준이에요'
+                    : sliderValue <= 80
+                    ? '상당히 공손한 메시지가 되겠네요'
+                    : '빈말의 향연이 펼쳐집니다'}
+                </p>
                 <div className="density-slider-track relative mb-3">
                   <div
                     className="density-slider-fill"
