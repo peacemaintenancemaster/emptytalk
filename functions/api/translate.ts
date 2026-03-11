@@ -283,12 +283,9 @@ async function serverDecode(text: string, apiKey: string): Promise<{ highlighted
     core = topKw.length >= 2 ? `${topKw.join(', ')} 관련 내용` : text.slice(0, 40)
   }
 
-  // 3) 요약문의 키워드 + 원본 키워드를 합쳐서 마킹 대상 결정
+  // 3) 요약문에 등장하는 키워드만 마킹 대상으로 선정
   const coreWords = (core.match(/[가-힣]{2,}|[a-zA-Z0-9]{2,}/g) || []).filter(w => !isFillerWord(w) && w.length >= 2)
-  const coreKeywords = keywords.filter(kw => core.includes(kw))
-  const extraFromCore = coreWords.filter(w => !keywords.includes(w)).slice(0, 3)
-  const extraKeywords = keywords.filter(kw => !core.includes(kw)).slice(0, 4)
-  const allMarkers = [...new Set([...coreKeywords, ...extraFromCore, ...extraKeywords])]
+  const allMarkers = [...new Set(coreWords)]
 
   // 4) 전체를 빈말([[]])로 감싸기
   let highlighted = `[[${text}]]`
