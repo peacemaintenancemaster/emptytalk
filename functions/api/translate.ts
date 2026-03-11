@@ -223,10 +223,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       response_format: { type: 'json_object' },
     })
 
-  // Retry logic: up to 2 attempts
+  // Retry logic: up to 3 attempts
   let content: string | null = null
   let lastError = ''
-  for (let attempt = 0; attempt < 2; attempt++) {
+  let lastStatus = 502
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -239,25 +240,36 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
       if (!res.ok) {
         const err: any = await res.json().catch(() => ({}))
-        lastError = err.error?.message || `OpenAI API error (${res.status})`
+        const status = res.status
+        if (status === 429) {
+          lastError = '서버가 바쁩니다. 잠시 후 다시 시도해주세요.'
+          lastStatus = 429
+          // rate limit일 때 잠시 대기 후 재시도
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))
+          continue
+        }
+        lastError = err.error?.message || `AI 서비스 오류 (${status})`
+        lastStatus = 502
         continue
       }
 
       const data: any = await res.json()
       content = data.choices?.[0]?.message?.content
       if (!content) {
-        lastError = 'Empty AI response'
+        lastError = 'AI 응답이 비어있습니다. 다시 시도해주세요.'
+        lastStatus = 502
         continue
       }
       break
     } catch (e: any) {
-      lastError = e?.message || 'Network error'
+      lastError = '네트워크 오류가 발생했습니다. 다시 시도해주세요.'
+      lastStatus = 502
       continue
     }
   }
 
   if (!content) {
-    return Response.json({ error: lastError || 'AI 응답 실패' }, { status: 502 })
+    return Response.json({ error: lastError || 'AI 응답 실패' }, { status: lastStatus })
   }
 
   // Increment rate limit after successful response

@@ -27,12 +27,25 @@ export async function fetchUsage(): Promise<UsageInfo> {
   }
 }
 
-export async function analyzeText(text: string): Promise<DecodeResult> {
-  const res = await fetch('/api/translate', {
+async function fetchWithRetry(body: object, retries = 2): Promise<Response> {
+  for (let i = 0; i <= retries; i++) {
+    const res = await fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (res.ok || (res.status !== 502 && res.status !== 429)) return res
+    if (i < retries) await new Promise(r => setTimeout(r, 1500 * (i + 1)))
+  }
+  return fetch('/api/translate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode: 'decode', text }),
+    body: JSON.stringify(body),
   })
+}
+
+export async function analyzeText(text: string): Promise<DecodeResult> {
+  const res = await fetchWithRetry({ mode: 'decode', text })
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
@@ -43,11 +56,7 @@ export async function analyzeText(text: string): Promise<DecodeResult> {
 }
 
 export async function generatePackaged(text: string, level: number): Promise<PackageResult> {
-  const res = await fetch('/api/translate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode: 'package', text, level }),
-  })
+  const res = await fetchWithRetry({ mode: 'package', text, level })
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
