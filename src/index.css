@@ -155,6 +155,7 @@ body::before {
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
   cursor: grab;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
+  margin-top: -10px;
 }
 
 .density-slider::-webkit-slider-thumb:hover {
