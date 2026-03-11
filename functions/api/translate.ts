@@ -279,7 +279,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const emptyText = emptyMatch ? emptyMatch.map((m: string) => m.slice(2, -2)).join('') : ''
       const plainText = raw.replace(/\[\[|\]\]/g, '')
       if (plainText.length > 0) {
-        parsed.ratio = Math.round((emptyText.length / plainText.length) * 1000) / 10
+        parsed.ratio = Math.min(99.9, Math.round((emptyText.length / plainText.length) * 1000) / 10)
       }
     }
     return Response.json({ ...parsed, _used: newUsed, _limit: DAILY_LIMIT })
