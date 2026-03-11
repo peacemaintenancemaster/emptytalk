@@ -12,9 +12,19 @@ const SYSTEM = `너는 한국어 빈말(의례적·관습적·장식적 표현) 
 완곡어미: ~할 수 있을까요/~하면 감사하겠습니다/~것으로 사료됩니다/~해주시면 큰 도움이 될 것 같습니다/~고려해 주시면 감사하겠습니다
 캐주얼: ㅎㅎ/ㅋㅋ/넵/아 네/습관적 감사합니다/아이고~/에고~/아유~/덕분입니다~
 
-## 빈말 판별 기준
-빈말O: 인사·안부·감사·마무리 인사, 미사여구·수식어, 추상적 약속·당위("최선을 다하겠습니다"/"상생"/"포용"/"소외되지 않는"), 완곡 표현("혹시 가능하시다면"), 의례적 사과·양해, 누구나 하는 뻔한 말
-빈말X(진심): 구체적 행동·지시·요청(뭘 해달라/하겠다), 고유명사·수치·날짜·금액, 새로운 정보·사실 전달, 핵심 논점·주장의 뼈대
+## 빈말 판별 기준 (엄격 적용)
+빈말O(적극적으로 잡아라):
+- 인사·안부·감사·마무리 인사, 미사여구·수식어
+- 추상적 약속·당위·선언("최선을 다하겠습니다"/"상생"/"포용"/"소외되지 않는"/"무궁한 발전")
+- 비유·은유·격언("호랑이도 풀밭이"/"자연의 이치가 그렇듯")
+- 수식·강조 표현("더 멀리, 더 오래, 더 높이"/"가장 현명하고도 효율적인")
+- 완곡 표현("혹시 가능하시다면"), 의례적 사과·양해
+- 뻔한 당위·원칙론("혼자서는 지속될 수 없습니다"/"전체가 무너지기 마련입니다")
+빈말X(진심 = 이것만 남겨라):
+- 구체적 행동·지시·요청(뭘 해달라/하겠다)
+- 고유명사·수치·날짜·금액("한화오션"/"890억 원"/"내일 3시")
+- 검증 가능한 사실("하청업체 노동자에게도 동일한 성과급을 지급하는")
+진심은 최소한으로 남겨라. 애매하면 빈말이다.
 
 ## 모드 (JSON만 출력, 인사·설명·마크다운 금지)
 
@@ -152,6 +162,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     // 포장 모드에서 [[ ]] 마크업이 남아있으면 강제 제거
     if (parsed.result && typeof parsed.result === 'string') {
       parsed.result = parsed.result.replace(/\[\[|\]\]/g, '')
+    }
+    // 해독 모드: AI의 ratio를 신뢰하지 않고 [[ ]] 기반으로 직접 계산
+    if (parsed.highlighted && typeof parsed.highlighted === 'string') {
+      const raw = parsed.highlighted
+      const emptyMatch = raw.match(/\[\[(.*?)\]\]/gs)
+      const emptyText = emptyMatch ? emptyMatch.map((m: string) => m.slice(2, -2)).join('') : ''
+      const plainText = raw.replace(/\[\[|\]\]/g, '')
+      if (plainText.length > 0) {
+        parsed.ratio = Math.round((emptyText.length / plainText.length) * 100)
+      }
     }
     return Response.json({ ...parsed, _used: newUsed, _limit: DAILY_LIMIT })
   } catch {
