@@ -21,7 +21,14 @@ t=의도(criticize|request|reject|complain|threaten|praise|apologize|general)
 const DAILY_LIMIT = 5
 
 // ── 유틸리티 ──
-function pick<T>(arr: T[]): T {
+function pick<T>(arr: T[] | undefined): T | string {
+  if (!arr || arr.length === 0) return ''
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+// 의도별 블록에서 안전하게 가져오기 (키 없으면 general 폴백)
+function pickBlock(block: Record<string, string[]>, intent: string): string {
+  const arr = block[intent] || block['general']
+  if (!arr || arr.length === 0) return ''
   return arr[Math.floor(Math.random() * arr.length)]
 }
 function pickN<T>(arr: T[], n: number): T[] {
@@ -919,48 +926,63 @@ const IDIOMS: Record<string, string[]> = {
 function assemblePackage(gBlock: string, level: number, inputText: string, intent: Intent): string {
   const season = getSeason()
   const ctx = detectContext(inputText)
+  const t = intent
 
   // G블록 후처리 (욕설 치환 등)
   gBlock = postProcessPackage(gBlock, inputText)
-
-  // apologize는 템플릿이 없으므로 general로 폴백
-  const t: string = intent === 'apologize' ? 'general' : intent
 
   if (level <= 30) {
     return gBlock
   }
 
   if (level <= 60) {
-    const a = pick(BLOCK_A[season][ctx])
-    const j = pick(BLOCK_J[t])
+    const a = pick(BLOCK_A[season]?.[ctx])
+    const j = pickBlock(BLOCK_J, t)
     const l = pick(BLOCK_L)
-    return `${a} ${gBlock} ${j} ${l}`
+    return [a, gBlock, j, l].filter(Boolean).join(' ')
   }
 
   if (level <= 80) {
-    const a = pick(BLOCK_A[season][ctx])
-    const b = pick(BLOCK_B[t])
-    const c = pick(BLOCK_C[t])
-    const d = pick(BLOCK_D[t])
-    const h = pick(BLOCK_H[t])
-    const i = pick(BLOCK_I[t])
-    const j = pick(BLOCK_J[t])
-    return `${a} ${b}\n\n${c} ${d}\n\n${gBlock}\n\n${h} ${i}\n\n${j}`
+    const a = pick(BLOCK_A[season]?.[ctx])
+    const b = pickBlock(BLOCK_B, t)
+    const c = pickBlock(BLOCK_C, t)
+    const d = pickBlock(BLOCK_D, t)
+    const h = pickBlock(BLOCK_H, t)
+    const i = pickBlock(BLOCK_I, t)
+    const j = pickBlock(BLOCK_J, t)
+    const parts = [
+      [a, b].filter(Boolean).join(' '),
+      [c, d].filter(Boolean).join(' '),
+      gBlock,
+      [h, i].filter(Boolean).join(' '),
+      j,
+    ].filter(Boolean)
+    return parts.join('\n\n')
   }
 
   // N≥80: 전체 블록 + 사자성어
-  const a = pick(BLOCK_A[season][ctx])
-  const b = pick(BLOCK_B[t])
-  const c = pick(BLOCK_C[t])
-  const idiom = pick(IDIOMS[t])
-  const d = pick(BLOCK_D[t])
-  const h = pick(BLOCK_H[t])
-  const i = pick(BLOCK_I[t])
-  const j = pick(BLOCK_J[t])
-  const k = pick(BLOCK_K[t])
+  const a = pick(BLOCK_A[season]?.[ctx])
+  const b = pickBlock(BLOCK_B, t)
+  const c = pickBlock(BLOCK_C, t)
+  const idiom = pickBlock(IDIOMS, t)
+  const d = pickBlock(BLOCK_D, t)
+  const h = pickBlock(BLOCK_H, t)
+  const i = pickBlock(BLOCK_I, t)
+  const j = pickBlock(BLOCK_J, t)
+  const k = pickBlock(BLOCK_K, t)
   const l = pick(BLOCK_L)
   const m = pick(BLOCK_M[season])
-  return `${a} ${b}\n\n${c} ${idiom} ${d}\n\n${gBlock}\n\n${h} ${i}\n\n${j} ${k}\n\n${m}\n\n${l}`
+
+  const parts = [
+    [a, b].filter(Boolean).join(' '),
+    [c, idiom, d].filter(Boolean).join(' '),
+    gBlock,
+    [h, i].filter(Boolean).join(' '),
+    [j, k].filter(Boolean).join(' '),
+    m,
+    l,
+  ].filter(Boolean)
+  return parts.join('\n\n')
 }
 
 // ── 서버사이드 core 추출 ──
