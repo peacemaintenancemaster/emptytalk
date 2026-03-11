@@ -227,58 +227,53 @@ function getFillerScore(sent: string): number {
   return penalty
 }
 
-// 핵심 문장 선택 → 한 줄 요약
-function extractCoreSentence(text: string, keywords: string[]): string {
-  const sentences = splitSentences(text)
-  if (sentences.length === 0) return text.slice(0, 60)
-  if (sentences.length === 1) {
-    const s = sentences[0]
-    return s.length > 60 ? s.slice(0, 57) + '…' : s
+// AI로 한 줄 요약 생성 (토큰 최소화)
+async function aiSummarize(text: string, apiKey: string): Promise<string> {
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: '입력 텍스트의 핵심을 한 문장(30자 이내)으로 요약. 미사여구/인사/감사 제외. 요약문만 출력.' },
+          { role: 'user', content: text.slice(0, 500) },
+        ],
+        temperature: 0.3,
+        max_tokens: 60,
+      }),
+    })
+    if (!res.ok) return ''
+    const data: any = await res.json()
+    return (data.choices?.[0]?.message?.content || '').trim()
+  } catch {
+    return ''
   }
-
-  const kwSet = new Set(keywords)
-
-  const scored = sentences.map(sent => {
-    // 키워드 매칭 점수
-    let kwScore = 0
-    for (const kw of kwSet) {
-      if (sent.includes(kw)) kwScore += kw.length
-    }
-    // 빈말 페널티 (높을수록 빈말 → 점수 감소)
-    const fillerPenalty = getFillerScore(sent)
-    // 최종 점수: 키워드 점수 - 빈말 페널티 * 5
-    const score = kwScore - fillerPenalty * 5
-    return { sent, score }
-  })
-
-  scored.sort((a, b) => b.score - a.score)
-
-  let best = scored[0].sent
-  if (best.length > 60) {
-    const cutPoint = best.lastIndexOf(' ', 60)
-    best = best.slice(0, cutPoint > 30 ? cutPoint : 57) + '…'
-  }
-
-  return best
 }
 
-function serverDecode(text: string): { highlighted: string, ratio: number, core: string } {
+async function serverDecode(text: string, apiKey: string): Promise<{ highlighted: string, ratio: number, core: string }> {
   // 짧은 욕설/감정 표현은 전체가 진심
   if (text.length <= 30 && GENUINE_OVERRIDE.test(text)) {
     return { highlighted: text, ratio: 0, core: text }
   }
 
-  // 1) 핵심 키워드 추출
+  // 1) 핵심 키워드 추출 (서버사이드)
   const keywords = extractKeywords(text)
 
-  // 2) 핵심 문장 선택 → 한 줄 요약 (연결된 문장)
-  const core = extractCoreSentence(text, keywords)
+  // 2) AI로 한 줄 요약 생성
+  let core = await aiSummarize(text, apiKey)
+  if (!core) {
+    // AI 실패 시 폴백: 상위 키워드 조합
+    const topKw = keywords.slice(0, 4)
+    core = topKw.length >= 2 ? `${topKw.join(', ')} 관련 내용` : text.slice(0, 40)
+  }
 
-  // 3) 요약 문장에서 키워드 재추출 (요약에 실제 등장하는 것만 마킹)
+  // 3) 요약문의 키워드 + 원본 키워드를 합쳐서 마킹 대상 결정
+  const coreWords = (core.match(/[가-힣]{2,}|[a-zA-Z0-9]{2,}/g) || []).filter(w => !FILLER_WORDS.has(w) && w.length >= 2)
   const coreKeywords = keywords.filter(kw => core.includes(kw))
-  // 요약에 없는 키워드도 일부 포함 (상위 5개까지)
-  const extraKeywords = keywords.filter(kw => !core.includes(kw)).slice(0, 5)
-  const allMarkers = [...coreKeywords, ...extraKeywords]
+  const extraFromCore = coreWords.filter(w => !keywords.includes(w)).slice(0, 3)
+  const extraKeywords = keywords.filter(kw => !core.includes(kw)).slice(0, 4)
+  const allMarkers = [...new Set([...coreKeywords, ...extraFromCore, ...extraKeywords])]
 
   // 4) 전체를 빈말([[]])로 감싸기
   let highlighted = `[[${text}]]`
@@ -1132,7 +1127,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   // ── 해독모드: AI 미사용, 서버사이드 패턴매칭 ──
   if (mode === 'decode') {
-    const result = serverDecode(text)
+    const result = await serverDecode(text, apiKey)
     const newUsed = used
     return Response.json({
       highlighted: result.highlighted,
