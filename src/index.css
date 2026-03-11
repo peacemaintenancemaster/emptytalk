@@ -476,7 +476,7 @@ footer a:hover {
   left: 50%;
   transform: translate(-50%, -50%);
   width: min(520px, 90vw);
-  max-height: 80vh;
+  max-height: min(80vh, calc(100dvh - 60px));
   background: #FEFDFB;
   border-radius: 20px;
   padding: 28px 32px;
