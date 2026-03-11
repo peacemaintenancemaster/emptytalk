@@ -158,6 +158,9 @@ export default function App() {
       {/* Header */}
       <header className="px-6 md:px-12 py-6 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
+          <svg width="22" height="22" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M50 10C25 10 5 26 5 46c0 11 6 21 16 28l-4 14c-.5 1.8 1.5 3.2 3 2l16-10c4 1.5 9 2 14 2 25 0 45-16 45-36S75 10 50 10z" stroke="#1C1917" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
           <h1 className="text-xl font-bold tracking-tight text-ink-900">
             빈말번역기
           </h1>
