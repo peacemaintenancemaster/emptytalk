@@ -99,6 +99,7 @@ export default function App() {
 
   const handleSubmit = useCallback(async () => {
     if (!input.trim() || remaining <= 0) return
+    if (mode === 'decode' && input.trim().length < 20) return
 
     setLoading(true)
     setError('')
@@ -248,8 +249,10 @@ export default function App() {
               <label className="text-xs font-semibold text-ink-500 uppercase tracking-wider">
                 {mode === 'decode' ? '분석할 텍스트' : '핵심 메시지'}
               </label>
-              <span className={`text-xs ${input.length >= (mode === 'decode' ? 800 : 100) ? 'text-red-500 font-semibold' : 'text-ink-400'}`}>
-                {input.length}/{'\u2009'}{mode === 'decode' ? '800' : '100'}자
+              <span className={`text-xs ${input.length >= (mode === 'decode' ? 800 : 100) ? 'text-red-500 font-semibold' : (mode === 'decode' && input.length > 0 && input.length < 20) ? 'text-amber-500' : 'text-ink-400'}`}>
+                {mode === 'decode' && input.length > 0 && input.length < 20
+                  ? `${input.length}자 (최소 20자)`
+                  : <>{input.length}/{'\u2009'}{mode === 'decode' ? '800' : '100'}자</>}
               </span>
             </div>
             <textarea
@@ -341,7 +344,7 @@ export default function App() {
                   e.currentTarget.style.background = remaining <= 0 ? '#A8A29E' : theme.btnBg
                 }}
                 onClick={handleSubmit}
-                disabled={loading || !input.trim() || remaining <= 0}
+                disabled={loading || !input.trim() || remaining <= 0 || (mode === 'decode' && input.trim().length < 20)}
               >
                 {loading ? (
                   <>
