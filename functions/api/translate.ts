@@ -242,13 +242,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const err: any = await res.json().catch(() => ({}))
         const status = res.status
         if (status === 429) {
-          lastError = '서버가 바쁩니다. 잠시 후 다시 시도해주세요.'
+          lastError = '잠시만 기다려주세요. 요청이 많아 처리가 지연되고 있습니다.'
           lastStatus = 429
           // rate limit일 때 잠시 대기 후 재시도
           await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))
           continue
         }
-        lastError = err.error?.message || `AI 서비스 오류 (${status})`
+        lastError = '일시적인 오류가 발생했습니다. 다시 시도해주세요.'
         lastStatus = 502
         continue
       }
@@ -256,13 +256,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const data: any = await res.json()
       content = data.choices?.[0]?.message?.content
       if (!content) {
-        lastError = 'AI 응답이 비어있습니다. 다시 시도해주세요.'
+        lastError = '응답을 생성하지 못했습니다. 다시 시도해주세요.'
         lastStatus = 502
         continue
       }
       break
     } catch (e: any) {
-      lastError = '네트워크 오류가 발생했습니다. 다시 시도해주세요.'
+      lastError = '연결이 불안정합니다. 잠시 후 다시 시도해주세요.'
       lastStatus = 502
       continue
     }
