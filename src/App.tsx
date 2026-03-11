@@ -277,7 +277,11 @@ export default function App() {
             {mode === 'package' && (
               <div className="rounded-2xl border border-indigo-200 bg-white p-5">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-ink-500">빈말 농도</span>
+                  <span className="text-xs font-semibold text-ink-500">빈말 농도
+                    <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: '#6366F1' }}>
+                      {sliderValue <= 20 ? '직설' : sliderValue <= 40 ? '적당' : sliderValue <= 70 ? '비즈니스' : '풀빈말'}
+                    </span>
+                  </span>
                   <span className="text-lg font-bold" style={{ color: '#6366F1' }}>
                     {sliderValue}%
                   </span>
