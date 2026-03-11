@@ -231,9 +231,50 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   try {
     const parsed = JSON.parse(content)
-    // 포장 모드에서 [[ ]] 마크업이 남아있으면 강제 제거
+    // 포장 모드 후처리
     if (parsed.result && typeof parsed.result === 'string') {
-      parsed.result = parsed.result.replace(/\[\[|\]\]/g, '')
+      let result = parsed.result
+      // [[ ]] 마크업 강제 제거
+      result = result.replace(/\[\[|\]\]/g, '')
+      // 공격적·비격식 어휘를 격식체로 치환
+      const polishMap: Array<[RegExp, string]> = [
+        [/도대체/g, '정확히'],
+        [/대체/g, '구체적으로'],
+        [/제발/g, '부디'],
+        [/좀/g, '다소'],
+        [/왜그래/g, '어떠한 사유가 있으신지'],
+        [/왜그러/g, '어떠한 사유가 있으신지'],
+        [/뭐야/g, '무엇인지'],
+        [/뭔데/g, '무엇인지'],
+        [/짜증/g, '유감'],
+        [/빡치/g, '심히 유감스럽'],
+        [/열받/g, '유감스럽'],
+        [/미치겠/g, '난감하'],
+        [/어이없/g, '당혹스럽'],
+        [/어이가 없/g, '당혹스럽'],
+        [/황당/g, '의아'],
+        [/개같/g, '부당하'],
+        [/지랄/g, '무리한 처사'],
+        [/씨발/g, '극히 유감스러운'],
+        [/시발/g, '극히 유감스러운'],
+        [/ㅅㅂ/g, '유감스러운'],
+        [/ㅂㅅ/g, '부적절한'],
+        [/병신/g, '부적절한 처사'],
+        [/개새끼/g, '귀하의 행태'],
+        [/새끼/g, '해당인'],
+        [/놈/g, '해당인'],
+        [/년/g, '해당인'],
+        [/나한테/g, '저에게'],
+        [/나보고/g, '저에게'],
+        [/나더러/g, '저에게'],
+        [/내가/g, '제가'],
+        [/니가/g, '귀하께서'],
+        [/네가/g, '귀하께서'],
+      ]
+      for (const [pattern, replacement] of polishMap) {
+        result = result.replace(pattern, replacement)
+      }
+      parsed.result = result
     }
     // 해독 모드 후처리
     if (parsed.highlighted && typeof parsed.highlighted === 'string') {
