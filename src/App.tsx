@@ -438,7 +438,7 @@ export default function App() {
                   <span className="text-xs font-semibold text-ink-500 block mb-3">원문 분석</span>
                   <div className="text-sm leading-relaxed whitespace-pre-wrap">
                     {segments.map((seg, i) => {
-                      const isWhitespace = !seg.text.trim()
+                      const isWhitespace = !seg.text.trim() || /^[\s.,;:!?·…—\-–'"'"「」『』()（）《》<>]+$/.test(seg.text.trim())
                       return (
                       <span
                         key={i}
