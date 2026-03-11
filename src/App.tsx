@@ -275,7 +275,7 @@ export default function App() {
                   />
                   <input
                     type="range"
-                    className="density-slider relative z-10"
+                    className="density-slider"
                     min="10"
                     max="100"
                     value={sliderValue}
