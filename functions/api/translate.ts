@@ -68,13 +68,16 @@ N≥70이면 만연체를 적극 사용하라:
 - 한 문장 안에 여러 절을 이어붙여 장문으로 만들어라
 - N≥90이면 극단적으로 길어도 좋다. 각 블록을 3~5문장씩 만연하게 채워라.
 
-N≤30: G만. 완곡 표현 약간. 2~3문장.
-N=40~50: A+G+J. 4~6문장, 150자+.
-N=50~60: A+F+G+J+L. 6~8문장, 250자+.
-N=60~70: A+C+F+G+H+J+L. 8~10문장, 350자+.
-N=70~80: A+C+D+E+F+G+H+I+J+L. 12~16문장, 500자+. 만연체.
-N=80~90: A+B+C+D+E+F+G+H+I+J+K+L. 16~22문장, 700자+. 만연체+인용.
-N≥90: A~M 전부 사용. 22문장+, 900자+. 극한 만연체. 명언·속담·사자성어를 2~3개 인용. 각 블록을 풍성하게 채워라. 짧게 끝내면 실패다.
+N=0~10: G만. 1~2문장, 50자 이내. 최소한의 완곡.
+N=10~20: G만. 2~3문장, 80자+. 완곡 표현 약간.
+N=20~30: G만. 3~4문장, 120자+.
+N=30~40: A+G. 4~5문장, 150자+.
+N=40~50: A+G+J. 5~7문장, 200자+.
+N=50~60: A+F+G+J+L. 7~9문장, 300자+.
+N=60~70: A+C+F+G+H+J+L. 9~12문장, 400자+.
+N=70~80: A+C+D+E+F+G+H+I+J+L. 12~16문장, 550자+. 만연체.
+N=80~90: A+B+C+D+E+F+G+H+I+J+K+L. 16~22문장, 750자+. 만연체+인용.
+N=90~100: A~M 전부 사용. 22문장+, 950자+. 극한 만연체. 명언·속담·사자성어를 2~3개 인용. 각 블록을 풍성하게 채워라. 짧게 끝내면 실패다.
 글자 수 기준을 반드시 충족해라. 기준 미달이면 블록별 내용을 더 풍성하게 써라.
 [[ ]] 마크업 절대 사용 금지.
 {"result":"빈말이 추가된 완성 메시지"}`
@@ -143,17 +146,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return Response.json({ error: 'Invalid mode' }, { status: 400 })
   }
 
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: mode === 'decode' ? 'gpt-4o' : 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: SYSTEM },
-        ...(mode === 'decode' ? [
+  const openaiBody = JSON.stringify({
+    model: mode === 'decode' ? 'gpt-4o' : 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: SYSTEM },
+      ...(mode === 'decode' ? [
           { role: 'user' as const, content: `[해독]\n수고 많으십니다. 다름이 아니오라, 다음 주 수요일까지 견적서를 보내주시면 감사하겠습니다. 번거로우시겠지만 양해 부탁드립니다. 좋은 하루 보내세요.` },
           { role: 'assistant' as const, content: `{"ratio":85,"highlighted":"[[수고 많으십니다. 다름이 아니오라,]] 다음 주 수요일까지 견적서[[를 보내주시면 감사하겠습니다. 번거로우시겠지만 양해 부탁드립니다. 좋은 하루 보내세요.]]","core":"수요일까지 견적서 요청"}` },
           { role: 'user' as const, content: `[해독]\n호랑이도 풀밭이 있어야 살아갈 수 있습니다. 자연의 이치가 그렇듯, 우리 경제 역시 혼자서는 지속될 수 없습니다. 한화오션은 하청업체 노동자에게도 본사와 동일한 성과급을 지급하는 등 협력업체와의 임금 격차를 줄이는 데 연간 890억 원을 투입했습니다. 이러한 상생의 가치가 대한민국 곳곳에 퍼져나갈 수 있도록 최선을 다하겠습니다.` },
@@ -171,21 +168,43 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       temperature: mode === 'decode' ? 0.4 : 0.9,
       max_tokens: 2000,
       response_format: { type: 'json_object' },
-    }),
-  })
+    })
 
-  if (!res.ok) {
-    const err: any = await res.json().catch(() => ({}))
-    return Response.json(
-      { error: err.error?.message || `OpenAI API error (${res.status})` },
-      { status: 502 }
-    )
+  // Retry logic: up to 2 attempts
+  let content: string | null = null
+  let lastError = ''
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: openaiBody,
+      })
+
+      if (!res.ok) {
+        const err: any = await res.json().catch(() => ({}))
+        lastError = err.error?.message || `OpenAI API error (${res.status})`
+        continue
+      }
+
+      const data: any = await res.json()
+      content = data.choices?.[0]?.message?.content
+      if (!content) {
+        lastError = 'Empty AI response'
+        continue
+      }
+      break
+    } catch (e: any) {
+      lastError = e?.message || 'Network error'
+      continue
+    }
   }
 
-  const data: any = await res.json()
-  const content = data.choices?.[0]?.message?.content
   if (!content) {
-    return Response.json({ error: 'Empty AI response' }, { status: 502 })
+    return Response.json({ error: lastError || 'AI 응답 실패' }, { status: 502 })
   }
 
   // Increment rate limit after successful response
