@@ -154,23 +154,6 @@ export default function App() {
             beta
           </span>
         </div>
-        {/* 사용 횟수 */}
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1">
-            {Array.from({ length: limit }, (_, i) => (
-              <div
-                key={i}
-                className="w-2 h-2 rounded-full transition-colors duration-300"
-                style={{
-                  background: i < used ? '#D6D3D1' : theme.pill,
-                }}
-              />
-            ))}
-          </div>
-          <span className={`text-xs font-medium ${remaining <= 1 ? 'text-red-500' : 'text-ink-400'}`}>
-            {remaining}/{limit}
-          </span>
-        </div>
       </header>
 
       {/* Hero */}
@@ -187,6 +170,25 @@ export default function App() {
             ? '메시지를 붙여넣으면 빈말을 찾아드립니다'
             : '핵심만 쓰세요. 빈말은 저희가 채워드립니다'}
         </p>
+      </div>
+
+      {/* 사용 횟수 */}
+      <div className="flex justify-center items-center gap-2.5 mb-4">
+        <span className="text-xs font-medium text-ink-400">오늘 사용 횟수</span>
+        <div className="flex gap-1">
+          {Array.from({ length: limit }, (_, i) => (
+            <div
+              key={i}
+              className="w-2 h-2 rounded-full transition-colors duration-300"
+              style={{
+                background: i < used ? '#D6D3D1' : theme.pill,
+              }}
+            />
+          ))}
+        </div>
+        <span className={`text-xs font-semibold ${remaining <= 1 ? 'text-red-500' : 'text-ink-500'}`}>
+          {remaining}/{limit}
+        </span>
       </div>
 
       {/* Mode Toggle */}
@@ -239,7 +241,7 @@ export default function App() {
               placeholder={
                 mode === 'decode'
                   ? '거래처 메일, 상사 피드백, 오랜만에 온 카톡...\n빈말이 의심되는 텍스트를 붙여넣어보세요'
-                  : '"다음 주 수요일까지 견적서 주세요"\n이렇게 핵심만 적어주세요'
+                  : '"다음 주 수요일까지 견적서 주세요"\n핵심만 적어주세요'
               }
               value={input}
               onChange={e => setInput(e.target.value)}
@@ -255,9 +257,6 @@ export default function App() {
                   <span className="text-xs font-semibold text-ink-500">빈말 농도</span>
                   <span className="text-lg font-bold" style={{ color: '#6366F1' }}>
                     {sliderValue}%
-                    <span className="text-xs font-medium text-ink-400 ml-1.5">
-                      ({closestPreset.label})
-                    </span>
                   </span>
                 </div>
                 <div className="density-slider-track relative mb-3">
