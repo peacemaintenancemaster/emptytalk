@@ -403,7 +403,7 @@ export default function App() {
                     <span style={{ background: theme.pill }} />
                   </div>
                   <p className="text-sm text-ink-400">
-                    {mode === 'decode' ? '빈말을 걸러내고 있습니다...' : '빈말을 섞고 있습니다...'}
+                    {mode === 'decode' ? '빈말을 걸러내고 있습니다...' : '빈말을 채우고 있습니다...'}
                   </p>
                 </div>
               </div>
